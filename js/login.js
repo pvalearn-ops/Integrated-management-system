@@ -1,11 +1,26 @@
+// js/login.js
+
 // 頁面載入時，檢查是否有記憶帳密
 window.onload = () => {
   const savedAcc = localStorage.getItem('savedAcc');
   const savedPwd = localStorage.getItem('savedPwd');
+  const accInput = document.getElementById('acc');
+  const pwdInput = document.getElementById('pwd');
+
   if (savedAcc && savedPwd) {
-    document.getElementById('acc').value = savedAcc;
-    document.getElementById('pwd').value = savedPwd;
+    accInput.value = savedAcc;
+    pwdInput.value = savedPwd;
   }
+
+  // === 新增：監聽 Enter 鍵觸發登入 ===
+  const triggerLoginOnEnter = (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
+  };
+
+  accInput.addEventListener('keydown', triggerLoginOnEnter);
+  pwdInput.addEventListener('keydown', triggerLoginOnEnter);
 };
 
 async function handleLogin() {

@@ -13,7 +13,18 @@ async function loadFiles() {
   const files = await callApi('getFileList', { userName: user.userName, deptName: user.deptName });
   
   listDiv.innerHTML = "";
-  if (!files || files.length === 0) { listDiv.innerHTML = "無檔案"; return; }
+  
+  // 【新增防呆機制】如果後端回傳錯誤訊息 (success為false)，就把錯誤印出來
+  if (files && files.success === false) {
+    listDiv.innerHTML = `<p style="color:red; text-align:center;">讀取失敗：${files.message}</p>`;
+    return;
+  }
+
+  // 確保 files 是陣列且有資料
+  if (!Array.isArray(files) || files.length === 0) { 
+    listDiv.innerHTML = "<p style='text-align:center;'>無檔案</p>"; 
+    return; 
+  }
   
   files.forEach(f => {
     const safeName = f.name.replace(/'/g, "\\'");

@@ -1,3 +1,5 @@
+// js/camera.js
+
 // === 狀態變數 ===
 const user = getCurrentUser(); // 引用綜合管理系統的登入狀態
 let currentName = "";
@@ -195,20 +197,35 @@ function showLoading(text) {
     document.getElementById('loading-text').textContent = text;
     document.getElementById('loading-overlay').style.display = 'flex';
 }
-function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+
+function hideLoading() { 
+    document.getElementById('loading-overlay').style.display = 'none'; 
+}
+
+// 格式化日期： yyyy/mm/dd hh:mm:ss
 function getFormattedTimestampDate() {
     const now = new Date();
-    return `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}/${String(now.getMinutes()).padStart(2, '0')}`;
+    const yy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${yy}/${mm}/${dd} ${h}:${m}:${s}`; 
 }
+
 function getFilenameDateStr() {
     const now = new Date();
     const yy = now.getFullYear(); const mm = String(now.getMonth() + 1).padStart(2, '0');
     return Object.freeze({ year: yy.toString(), month: mm.toString(), fileDate: `${yy}${mm}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}` });
 }
+
 function degToDmsRational(deg) {
     const m = Math.abs(deg); const degrees = Math.floor(m); const minutes = Math.floor((m - degrees) * 60);
     return [[degrees, 1], [minutes, 1], [Math.round((m - degrees - minutes / 60) * 3600 * 1000), 1000]];
 }
+
 function addExifGPS(base64Image, lat, lng) {
     if (typeof piexif === 'undefined') return base64Image;
     try {
@@ -220,6 +237,7 @@ function addExifGPS(base64Image, lat, lng) {
         return piexif.insert(piexif.dump({ "0th": {}, "Exif": {}, "GPS": gpsIfd }), base64Image);
     } catch (e) { return base64Image; }
 }
+
 function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -228,6 +246,7 @@ function blobToBase64(blob) {
         reader.readAsDataURL(blob);
     });
 }
+
 async function uploadToGas(payload) {
     const res = await fetch(gasUrl, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
     const result = await res.json();
@@ -264,14 +283,30 @@ async function startCamera() {
     } catch (err) { alert('無法開啟攝影機：' + err.message); }
 }
 
+// 繪製影片幀與時間戳的共同功能 (更新大小調整與位置)
 function drawVideoWithTimestamp(ctx, width, height) {
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(document.getElementById('camera-video'), 0, 0, width, height);
+    
     const timestamp = getFormattedTimestampDate();
-    ctx.font = `bold ${Math.floor(height * 0.05)}px monospace`;
-    ctx.fillStyle = "white"; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
-    ctx.lineWidth = 3; ctx.strokeStyle = "black";
-    ctx.strokeText(timestamp, width - 20, height - 20); ctx.fillText(timestamp, width - 20, height - 20);
+    
+    // 調整字體大小：取寬高較小值的 3.5%
+    const fontSize = Math.floor(Math.min(width, height) * 0.035); 
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.fillStyle = "white"; 
+    ctx.textAlign = "right"; 
+    ctx.textBaseline = "bottom";
+    
+    // 動態調整黑邊框粗細
+    ctx.lineWidth = Math.max(1, Math.floor(fontSize / 15)); 
+    ctx.strokeStyle = "black";
+    
+    // 邊距比例動態微調 (約 2%)
+    const padding = Math.floor(Math.min(width, height) * 0.02);
+    
+    ctx.strokeText(timestamp, width - padding, height - padding); 
+    ctx.fillText(timestamp, width - padding, height - padding);
+    
     return timestamp;
 }
 

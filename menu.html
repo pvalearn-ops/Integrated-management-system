@@ -1,0 +1,21 @@
+// 在 menu.js 中
+window.onload = () => {
+  const user = getCurrentUser();
+  if (!user.userName) {
+    window.location.href = "index.html"; // 未登入則踢回首頁
+    return;
+  }
+  
+  document.getElementById('menuUser').innerText = user.userName;
+  document.getElementById('menuDept').innerText = user.deptName;
+
+  // 權限控管：行政部門隱藏儀表板
+  if (user.deptName === "行政") {
+    document.getElementById('menuBtnDashboard').style.display = 'none';
+  }
+};
+
+function logout() {
+  sessionStorage.clear();
+  window.location.href = "index.html";
+}

@@ -7,65 +7,61 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.min.js"></script>
   <style>
-    .video-container { position: relative; width: 100%; height: 60vh; background: #000; overflow: hidden; border-radius: 0.5rem; }
+    /* 影片容器，確保疊加層能定位在內部 */
+    .video-container { position: relative; width: 100%; height: 70vh; min-height: 300px; background: #000; overflow: hidden; border-radius: 0.75rem; }
     #camera-video { width: 100%; height: 100%; object-fit: cover; }
-    #loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 50; align-items: center; justify-content: center; flex-direction: column; color: white; }
+    #loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); z-index: 60; align-items: center; justify-content: center; flex-direction: column; color: white; backdrop-filter: blur(3px); }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans antialiased min-h-screen">
 
   <div id="main-section" class="flex flex-col min-h-screen">
-    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
+    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-10 relative">
       <div class="flex items-center gap-3">
         <button onclick="window.location.href='menu.html'" class="bg-blue-800 hover:bg-blue-900 border border-blue-400 px-3 py-1 rounded text-sm transition font-semibold">⬅ 返回選單</button>
         <h1 class="font-bold text-lg hidden sm:block">GPS 浮水印相機</h1>
       </div>
       <div class="flex items-center gap-4">
-        <button id="view-files-btn" class="bg-blue-800 hover:bg-blue-900 border border-blue-400 px-3 py-1 rounded text-sm transition font-semibold">📂 歷史檔案</button>
+        <button id="view-files-btn" class="bg-blue-800 hover:bg-blue-900 border border-blue-400 px-3 py-1 rounded text-sm transition font-semibold">📂 歷史</button>
         <div class="text-sm">使用者: <span id="display-name" class="font-semibold"></span></div>
       </div>
     </header>
 
-    <main class="flex-1 p-4 flex flex-col items-center">
-      <div class="w-full max-w-2xl bg-white p-4 rounded-xl shadow-md">
+    <main class="flex-1 p-3 flex flex-col items-center">
+      <div class="w-full max-w-2xl bg-white p-3 rounded-xl shadow-md">
         
-        <div class="video-container mb-4">
+        <div class="video-container mb-4 shadow-inner">
           <video id="camera-video" autoplay playsinline muted></video>
-          <div id="video-timestamp" class="absolute bottom-2 right-4 text-white font-mono text-sm shadow-black drop-shadow-md z-10" style="text-shadow: 1px 1px 2px black;"></div>
           
-          <button id="switch-camera-btn" class="absolute top-4 right-4 bg-white/30 hover:bg-white/50 backdrop-blur-sm text-white rounded-full p-2 px-3 text-sm z-10 transition flex items-center shadow-lg">
-            🔄 切換鏡頭
+          <div id="gps-overlay" class="absolute top-4 left-4 z-10 text-white drop-shadow-md text-xs bg-black/40 p-2 rounded backdrop-blur-sm border border-white/20">
+            <div id="gps-status" class="text-yellow-400 font-bold mb-1"><span class="animate-pulse mr-1">●</span> 尋找定位中...</div>
+            <div id="gps-coords" class="text-gray-200">緯度: -, 經度: -</div>
+          </div>
+
+          <div id="video-timestamp" class="absolute bottom-20 right-4 text-white font-mono text-sm shadow-black drop-shadow-md z-10" style="text-shadow: 1px 1px 2px black;"></div>
+          
+          <button id="switch-camera-btn" class="absolute top-4 right-4 bg-black/40 hover:bg-black/60 backdrop-blur-sm border border-white/20 text-white rounded-full p-2 px-3 text-sm z-10 transition flex items-center shadow-lg">
+            🔄 切換
           </button>
+
+          <div class="absolute bottom-4 left-0 w-full flex justify-center gap-4 z-20 px-4">
+            <button id="photo-btn" class="bg-blue-600/90 hover:bg-blue-600 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-full flex-1 shadow-lg border border-white/30 transition active:scale-95 text-center">📸 拍照</button>
+            <button id="record-start-btn" class="bg-red-500/90 hover:bg-red-500 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-full flex-1 shadow-lg border border-white/30 transition active:scale-95 text-center">🎥 錄影</button>
+            <button id="record-stop-btn" class="bg-gray-800/90 hover:bg-gray-800 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-full hidden flex-1 shadow-lg border border-white/30 animate-pulse text-center">⏹ 停止並上傳</button>
+          </div>
         </div>
 
         <canvas id="capture-canvas" class="hidden"></canvas>
         <canvas id="record-canvas" class="hidden"></canvas>
 
-        <div class="bg-gray-50 p-3 rounded-lg border mb-4 text-sm">
-          <div class="flex items-center justify-between mb-2">
-            <span class="font-semibold">GPS 定位狀態:</span>
-            <span id="gps-status" class="text-yellow-600 flex items-center">
-              <span class="animate-pulse mr-1">●</span> 尋找定位中...
-            </span>
-          </div>
-          <div class="text-xs text-gray-500" id="gps-coords">緯度: -, 經度: -</div>
-        </div>
-
-        <div class="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+        <div class="p-3 bg-red-50 rounded-lg border border-red-200">
           <div class="flex items-center mb-2">
-            <input type="checkbox" id="unqualified-check" class="w-4 h-4 text-red-600 rounded focus:ring-red-500">
-            <label for="unqualified-check" class="ml-2 font-semibold text-red-700">不合格錄影</label>
+            <input type="checkbox" id="unqualified-check" class="w-5 h-5 text-red-600 rounded focus:ring-red-500 cursor-pointer">
+            <label for="unqualified-check" class="ml-2 font-semibold text-red-700 cursor-pointer">不合格錄影 (勾選後必填單位名稱)</label>
           </div>
-          <div id="business-name-container" class="hidden pl-6">
-            <label class="block text-xs font-medium text-gray-700 mb-1">事業單位名稱</label>
-            <input type="text" id="business-name" class="w-full text-sm px-3 py-1.5 border border-red-300 rounded focus:ring focus:ring-red-300 outline-none" placeholder="輸入事業單位名稱">
+          <div id="business-name-container" class="hidden pl-7 mt-2">
+            <input type="text" id="business-name" class="w-full text-sm px-3 py-2 border border-red-300 rounded focus:ring focus:ring-red-300 outline-none" placeholder="請輸入事業單位名稱">
           </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <button id="photo-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center transition-colors">📸 拍照上傳</button>
-          <button id="record-start-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg flex items-center justify-center transition-colors">🎥 開始錄影</button>
-          <button id="record-stop-btn" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-lg hidden items-center justify-center transition-colors col-span-2">⏹ 停止錄影並上傳</button>
         </div>
       </div>
     </main>
@@ -75,7 +71,7 @@
     <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
       <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
         <h2 class="text-xl font-bold text-gray-800">歷史存檔紀錄</h2>
-        <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl font-bold leading-none">&times;</button>
+        <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl font-bold leading-none">&times;</button>
       </div>
       <div id="files-list-container" class="p-4 flex-1 overflow-y-auto bg-gray-100"></div>
     </div>
@@ -90,7 +86,7 @@
 
   <div id="loading-overlay">
     <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-white mb-4"></div>
-    <div id="loading-text" class="text-lg font-bold">處理中...</div>
+    <div id="loading-text" class="text-lg font-bold tracking-wider">處理中...</div>
   </div>
 
   <script src="js/api.js"></script>

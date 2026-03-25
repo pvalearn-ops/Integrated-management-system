@@ -1,7 +1,6 @@
 // js/camera.js
 
-// === 狀態變數 ===
-const user = getCurrentUser(); // 引用綜合管理系統的登入狀態
+const user = getCurrentUser();
 let currentName = "";
 let gasUrl = 'https://script.google.com/macros/s/AKfycbylNtiXUPuOEo8DqIF6sFf-66Kj0xQ0BJzzN5M9zD6NjIDEpo0cpLr0dLSyLGpzPv9vlg/exec';
 let currentPosition = null;
@@ -13,22 +12,14 @@ let recordedChunks = [];
 let animationFrameId = null;
 
 window.onload = () => {
-    // 檢查是否已從主系統登入
-    if (!user.userName) { 
-        window.location.href = "index.html"; 
-        return; 
-    }
-    
+    if (!user.userName) { window.location.href = "index.html"; return; }
     currentName = user.userName;
     document.getElementById('display-name').textContent = currentName;
-    
-    // 直接啟動系統
     initSystem();
     bindEvents();
 };
 
 function bindEvents() {
-    // === DOM 元素存取 ===
     const viewFilesBtn = document.getElementById('view-files-btn');
     const filesModal = document.getElementById('files-modal');
     const closeModalBtn = document.getElementById('close-modal-btn');
@@ -47,7 +38,6 @@ function bindEvents() {
     viewFilesBtn.addEventListener('click', async () => {
         filesModal.classList.remove('hidden');
         filesListContainer.innerHTML = '<div class="text-center text-gray-500 my-8">載入中...</div>';
-        
         try {
             const res = await fetch(gasUrl, {
                 method: 'POST',
@@ -64,25 +54,15 @@ function bindEvents() {
                     if (!items || items.length === 0) return '';
                     const listHtml = items.map(f => {
                         const date = new Date(f.dateCreated).toLocaleString();
-                        return `
-                          <button data-fileid="${f.fileId}" data-mime="${f.mimeType}" class="preview-item-btn w-full text-left block bg-white hover:bg-blue-50 border p-3 rounded-lg mb-2 shadow-sm transition cursor-pointer">
+                        return `<button data-fileid="${f.fileId}" data-mime="${f.mimeType}" class="preview-item-btn w-full text-left block bg-white hover:bg-blue-50 border p-3 rounded-lg mb-2 shadow-sm transition cursor-pointer">
                             <div class="flex items-center pointer-events-none">
                               <span class="text-3xl mr-4">${icon}</span>
-                              <div>
-                                <div class="font-bold text-blue-700 break-all pointer-events-auto">${f.name}</div>
-                                <div class="text-xs text-gray-500 mt-1">建立時間: ${date}</div>
-                              </div>
-                            </div>
-                          </button>
-                        `;
+                              <div><div class="font-bold text-blue-700 break-all pointer-events-auto">${f.name}</div><div class="text-xs text-gray-500 mt-1">建立時間: ${date}</div></div>
+                            </div></button>`;
                     }).join('');
                     return `<div class="mb-6"><div class="font-bold text-gray-800 bg-gray-200 px-3 py-2 rounded mb-3 flex items-center"><span class="mr-2">${icon}</span> ${title}</div>${listHtml}</div>`;
                 };
-
-                filesListContainer.innerHTML = 
-                    renderSection('照片紀錄 (最近 10 筆)', result.files.photo, '📸') +
-                    renderSection('正常錄影紀錄 (最近 10 筆)', result.files.video, '🎥') +
-                    renderSection('不合格錄影紀錄 (最近 10 筆)', result.files.unqual, '⚠️');
+                filesListContainer.innerHTML = renderSection('照片紀錄 (最近 10 筆)', result.files.photo, '📸') + renderSection('正常錄影紀錄 (最近 10 筆)', result.files.video, '🎥') + renderSection('不合格錄影紀錄 (最近 10 筆)', result.files.unqual, '⚠️');
             }
         } catch (e) { filesListContainer.innerHTML = `<div class="text-center text-red-500 my-8">存檔紀錄讀取失敗: ${e.message}</div>`; }
     });
@@ -90,12 +70,8 @@ function bindEvents() {
     closeModalBtn.addEventListener('click', () => filesModal.classList.add('hidden'));
 
     unqualifiedCheck.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            businessNameContainer.classList.remove('hidden');
-        } else {
-            businessNameContainer.classList.add('hidden');
-            businessNameInput.value = '';
-        }
+        if (e.target.checked) { businessNameContainer.classList.remove('hidden'); } 
+        else { businessNameContainer.classList.add('hidden'); businessNameInput.value = ''; }
     });
 
     switchCameraBtn.addEventListener('click', async () => {
@@ -105,6 +81,8 @@ function bindEvents() {
     });
 
     photoBtn.addEventListener('click', async () => {
+        const cameraVideo = document.getElementById('camera-video');
+        cameraVideo.pause(); // 🔥 凍結畫面
         showLoading('📸 拍照並上傳中...');
         try {
             const captureCanvas = document.getElementById('capture-canvas');
@@ -116,10 +94,10 @@ function bindEvents() {
             const dateObj = getFilenameDateStr();
             const filename = `${dateObj.fileDate}.jpg`;
 
-            const payload = { type: 'photo', name: currentName, year: dateObj.year, month: dateObj.month, filename: filename, mimeType: 'image/jpeg', data: dataUrl };
-            await uploadToGas(payload);
+            await uploadToGas({ type: 'photo', name: currentName, year: dateObj.year, month: dateObj.month, filename: filename, mimeType: 'image/jpeg', data: dataUrl });
             alert('✅ 照片上傳成功！\n檔名: ' + filename);
-        } catch (e) { alert('❌ 照片上傳失敗: \n' + e.message); } finally { hideLoading(); }
+        } catch (e) { alert('❌ 照片上傳失敗: \n' + e.message); } 
+        finally { hideLoading(); cameraVideo.play(); /* 🔥 恢復播放 */ }
     });
 
     recordStartBtn.addEventListener('click', () => {
@@ -128,8 +106,7 @@ function bindEvents() {
             const recordCanvas = document.getElementById('record-canvas');
             const cameraVideo = document.getElementById('camera-video');
             const canvasStream = recordCanvas.captureStream(30);
-            const originalStream = cameraVideo.srcObject;
-            if (originalStream && originalStream.getAudioTracks().length > 0) { canvasStream.addTrack(originalStream.getAudioTracks()[0]); }
+            if (cameraVideo.srcObject && cameraVideo.srcObject.getAudioTracks().length > 0) { canvasStream.addTrack(cameraVideo.srcObject.getAudioTracks()[0]); }
 
             mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm; codecs=vp9' });
             recordedChunks = [];
@@ -138,8 +115,7 @@ function bindEvents() {
             mediaRecorder.start();
             isRecording = true;
 
-            recordStartBtn.classList.add('hidden');
-            recordStopBtn.classList.remove('hidden'); recordStopBtn.classList.add('flex');
+            recordStartBtn.classList.add('hidden'); recordStopBtn.classList.remove('hidden'); recordStopBtn.classList.add('flex');
             photoBtn.classList.add('hidden'); photoBtn.classList.remove('flex');
             document.getElementById('video-timestamp').classList.add('text-red-500');
         } catch (e) { console.error(e); alert('無法啟動錄影: ' + e.message); }
@@ -147,6 +123,7 @@ function bindEvents() {
 
     recordStopBtn.addEventListener('click', () => {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            document.getElementById('camera-video').pause(); // 🔥 結束時凍結在最後一幀
             mediaRecorder.stop();
             isRecording = false;
             recordStartBtn.classList.remove('hidden'); recordStartBtn.classList.add('flex');
@@ -162,7 +139,7 @@ function bindEvents() {
         const fileId = btn.getAttribute('data-fileid');
         const mimeType = btn.getAttribute('data-mime');
 
-        showLoading('⏬ 檔案安全存取中，視大小可能需數秒至數十秒...');
+        showLoading('⏬ 檔案安全存取中，可能需數秒至數十秒...');
         try {
             const res = await fetch(gasUrl, { method: 'POST', body: JSON.stringify({ type: 'get_file_data', fileId: fileId }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
             const result = await res.json();
@@ -177,7 +154,6 @@ function bindEvents() {
             if (mimeType.startsWith('image/')) { previewContainer.innerHTML = `<img src="${objectUrl}" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl">`; } 
             else if (mimeType.startsWith('video/')) { previewContainer.innerHTML = `<video src="${objectUrl}" controls autoplay playsinline class="max-w-full max-h-[80vh] rounded-lg shadow-2xl"></video>`; } 
             else { previewContainer.innerHTML = `<div class="text-white">無法預覽此檔案類型</div>`; }
-
             previewModal.classList.remove('hidden');
         } catch(err) { alert('無法載入預覽: ' + err.message); } finally { hideLoading(); }
     });
@@ -192,61 +168,32 @@ function bindEvents() {
     }
 }
 
-// === 實用功能 ===
-function showLoading(text) {
-    document.getElementById('loading-text').textContent = text;
-    document.getElementById('loading-overlay').style.display = 'flex';
-}
-
-function hideLoading() { 
-    document.getElementById('loading-overlay').style.display = 'none'; 
-}
-
-// 格式化日期： yyyy/mm/dd hh:mm:ss
+function showLoading(text) { document.getElementById('loading-text').textContent = text; document.getElementById('loading-overlay').style.display = 'flex'; }
+function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 function getFormattedTimestampDate() {
-    const now = new Date();
-    const yy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    
+    const now = new Date(); const yy = now.getFullYear(); const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0'); const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0'); const s = String(now.getSeconds()).padStart(2, '0');
     return `${yy}/${mm}/${dd} ${h}:${m}:${s}`; 
 }
-
 function getFilenameDateStr() {
-    const now = new Date();
-    const yy = now.getFullYear(); const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const now = new Date(); const yy = now.getFullYear(); const mm = String(now.getMonth() + 1).padStart(2, '0');
     return Object.freeze({ year: yy.toString(), month: mm.toString(), fileDate: `${yy}${mm}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}` });
 }
-
 function degToDmsRational(deg) {
     const m = Math.abs(deg); const degrees = Math.floor(m); const minutes = Math.floor((m - degrees) * 60);
     return [[degrees, 1], [minutes, 1], [Math.round((m - degrees - minutes / 60) * 3600 * 1000), 1000]];
 }
-
 function addExifGPS(base64Image, lat, lng) {
     if (typeof piexif === 'undefined') return base64Image;
     try {
         const gpsIfd = {};
-        gpsIfd[piexif.GPSIFD.GPSLatitudeRef] = lat >= 0 ? "N" : "S";
-        gpsIfd[piexif.GPSIFD.GPSLatitude] = degToDmsRational(lat);
-        gpsIfd[piexif.GPSIFD.GPSLongitudeRef] = lng >= 0 ? "E" : "W";
-        gpsIfd[piexif.GPSIFD.GPSLongitude] = degToDmsRational(lng);
+        gpsIfd[piexif.GPSIFD.GPSLatitudeRef] = lat >= 0 ? "N" : "S"; gpsIfd[piexif.GPSIFD.GPSLatitude] = degToDmsRational(lat);
+        gpsIfd[piexif.GPSIFD.GPSLongitudeRef] = lng >= 0 ? "E" : "W"; gpsIfd[piexif.GPSIFD.GPSLongitude] = degToDmsRational(lng);
         return piexif.insert(piexif.dump({ "0th": {}, "Exif": {}, "GPS": gpsIfd }), base64Image);
     } catch (e) { return base64Image; }
 }
-
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
+function blobToBase64(blob) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob); }); }
 async function uploadToGas(payload) {
     const res = await fetch(gasUrl, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
     const result = await res.json();
@@ -254,18 +201,17 @@ async function uploadToGas(payload) {
     return result;
 }
 
-// === 核心系統初始化 ===
 async function initSystem() {
     if (navigator.geolocation) {
         watchId = navigator.geolocation.watchPosition((position) => {
             currentPosition = position.coords;
-            document.getElementById('gps-status').innerHTML = `<span class="text-green-600">● 成功定位</span>`;
+            document.getElementById('gps-status').innerHTML = `<span class="text-green-500 font-bold">● 成功定位</span>`;
             document.getElementById('gps-coords').textContent = `緯度: ${currentPosition.latitude.toFixed(6)}, 經度: ${currentPosition.longitude.toFixed(6)}`;
         }, (error) => {
-            document.getElementById('gps-status').innerHTML = `<span class="text-red-500">● 定位失敗/遭拒</span>`;
+            document.getElementById('gps-status').innerHTML = `<span class="text-red-500 font-bold">● 定位失敗</span>`;
             document.getElementById('gps-coords').textContent = `錯誤碼: ${error.code}`;
         }, { enableHighAccuracy: true });
-    } else { document.getElementById('gps-status').innerHTML = `<span class="text-red-500">● 設備不支援定位</span>`; }
+    } else { document.getElementById('gps-status').innerHTML = `<span class="text-red-500 font-bold">● 不支援定位</span>`; }
     await startCamera();
 }
 
@@ -275,38 +221,46 @@ async function startCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
         cameraVideo.srcObject = stream;
+        
         cameraVideo.onloadedmetadata = () => {
-            document.getElementById('record-canvas').width = cameraVideo.videoWidth; document.getElementById('record-canvas').height = cameraVideo.videoHeight;
-            document.getElementById('capture-canvas').width = cameraVideo.videoWidth; document.getElementById('capture-canvas').height = cameraVideo.videoHeight;
+            // 🔥 防變形核心：動態將視訊真實長寬同步給 Canvas
+            const updateCanvasSize = () => {
+                if (!isRecording) {
+                    document.getElementById('record-canvas').width = cameraVideo.videoWidth;
+                    document.getElementById('record-canvas').height = cameraVideo.videoHeight;
+                    document.getElementById('capture-canvas').width = cameraVideo.videoWidth;
+                    document.getElementById('capture-canvas').height = cameraVideo.videoHeight;
+                }
+            };
+            updateCanvasSize();
+            // 監聽螢幕旋轉/視窗大小改變
+            cameraVideo.addEventListener('resize', updateCanvasSize);
+            
             if (!animationFrameId) startCanvasRenderLoop();
         };
     } catch (err) { alert('無法開啟攝影機：' + err.message); }
 }
 
-// 繪製影片幀與時間戳的共同功能 (更新大小調整與位置)
 function drawVideoWithTimestamp(ctx, width, height) {
+    // 拍照當下確保長寬抓取到最新旋轉後的真實解析度
+    if (ctx.canvas.id === 'capture-canvas') {
+        const cv = document.getElementById('camera-video');
+        ctx.canvas.width = cv.videoWidth; ctx.canvas.height = cv.videoHeight;
+        width = cv.videoWidth; height = cv.videoHeight;
+    }
+
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(document.getElementById('camera-video'), 0, 0, width, height);
     
     const timestamp = getFormattedTimestampDate();
-    
-    // 調整字體大小：取寬高較小值的 3.5%
     const fontSize = Math.floor(Math.min(width, height) * 0.035); 
     ctx.font = `bold ${fontSize}px monospace`;
-    ctx.fillStyle = "white"; 
-    ctx.textAlign = "right"; 
-    ctx.textBaseline = "bottom";
-    
-    // 動態調整黑邊框粗細
-    ctx.lineWidth = Math.max(1, Math.floor(fontSize / 15)); 
-    ctx.strokeStyle = "black";
-    
-    // 邊距比例動態微調 (約 2%)
+    ctx.fillStyle = "white"; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+    ctx.lineWidth = Math.max(1, Math.floor(fontSize / 15)); ctx.strokeStyle = "black";
     const padding = Math.floor(Math.min(width, height) * 0.02);
     
     ctx.strokeText(timestamp, width - padding, height - padding); 
     ctx.fillText(timestamp, width - padding, height - padding);
-    
     return timestamp;
 }
 
@@ -341,6 +295,7 @@ async function uploadVideo() {
     } catch (e) { alert('❌ 影片上傳失敗: \n' + e.message); } 
     finally {
         hideLoading();
+        document.getElementById('camera-video').play(); // 🔥 恢復播放
         document.getElementById('unqualified-check').checked = false;
         document.getElementById('business-name-container').classList.add('hidden');
         document.getElementById('business-name').value = '';

@@ -1,21 +1,36 @@
-// 在 menu.js 中
-window.onload = () => {
-  const user = getCurrentUser();
-  if (!user.userName) {
-    window.location.href = "index.html"; // 未登入則踢回首頁
-    return;
-  }
-  
-  document.getElementById('menuUser').innerText = user.userName;
-  document.getElementById('menuDept').innerText = user.deptName;
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>主選單 - 綜合管理系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container" id="menuBox">
+    <div class="user-info-bar">
+      <span><span class="dept-badge" id="menuDept"></span> <span id="menuUser" style="font-weight:bold;"></span> 您好</span>
+      <button class="btn-outline" onclick="logout()">登出</button>
+    </div>
+    <div class="header-title"><div class="sub-title">請選擇功能</div></div>
+    
+    <div class="menu-grid">
+      <div class="menu-card" onclick="window.location.href='sign.html'">
+        <span class="menu-icon">📝</span>
+        <div class="menu-text">數位會簽本</div>
+      </div>
+      <div class="menu-card" onclick="window.location.href='duty.html'">
+        <span class="menu-icon">📅</span>
+        <div class="menu-text">數位值日簿</div>
+      </div>
+      <div class="menu-card" id="menuBtnDashboard" onclick="window.location.href='dashboard.html'">
+        <span class="menu-icon">📊</span>
+        <div class="menu-text">檢查量儀錶板</div>
+      </div>
+    </div>
+  </div>
 
-  // 權限控管：行政部門隱藏儀表板
-  if (user.deptName === "行政") {
-    document.getElementById('menuBtnDashboard').style.display = 'none';
-  }
-};
-
-function logout() {
-  sessionStorage.clear();
-  window.location.href = "index.html";
-}
+  <script src="js/api.js"></script>
+  <script src="js/menu.js"></script>
+</body>
+</html>

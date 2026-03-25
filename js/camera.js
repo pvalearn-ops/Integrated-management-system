@@ -1,6 +1,6 @@
 // js/camera.js
 
-const user = getCurrentUser();
+const user = getCurrentUser(); 
 let currentName = "";
 let gasUrl = 'https://script.google.com/macros/s/AKfycbylNtiXUPuOEo8DqIF6sFf-66Kj0xQ0BJzzN5M9zD6NjIDEpo0cpLr0dLSyLGpzPv9vlg/exec';
 let currentPosition = null;
@@ -10,6 +10,9 @@ let isRecording = false;
 let mediaRecorder = null;
 let recordedChunks = [];
 let animationFrameId = null;
+
+// 新增：紀錄當前螢幕方向
+let lastOrientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
 
 window.onload = () => {
     if (!user.userName) { window.location.href = "index.html"; return; }
@@ -34,6 +37,19 @@ function bindEvents() {
     const unqualifiedCheck = document.getElementById('unqualified-check');
     const businessNameContainer = document.getElementById('business-name-container');
     const businessNameInput = document.getElementById('business-name');
+
+    // 🔥 新增：監聽手機螢幕旋轉 (防變形對策)
+    window.addEventListener('resize', () => {
+        const currentOrientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+        // 只有在方向真的改變，且沒有在錄影時，才重啟相機
+        if (currentOrientation !== lastOrientation && !isRecording) {
+            lastOrientation = currentOrientation;
+            // 稍微等待 300 毫秒，讓手機瀏覽器完成排版旋轉後再重啟相機
+            setTimeout(() => {
+                startCamera();
+            }, 300);
+        }
+    });
 
     viewFilesBtn.addEventListener('click', async () => {
         filesModal.classList.remove('hidden');
@@ -82,7 +98,7 @@ function bindEvents() {
 
     photoBtn.addEventListener('click', async () => {
         const cameraVideo = document.getElementById('camera-video');
-        cameraVideo.pause(); // 🔥 凍結畫面
+        cameraVideo.pause(); // 凍結畫面
         showLoading('📸 拍照並上傳中...');
         try {
             const captureCanvas = document.getElementById('capture-canvas');
@@ -97,7 +113,7 @@ function bindEvents() {
             await uploadToGas({ type: 'photo', name: currentName, year: dateObj.year, month: dateObj.month, filename: filename, mimeType: 'image/jpeg', data: dataUrl });
             alert('✅ 照片上傳成功！\n檔名: ' + filename);
         } catch (e) { alert('❌ 照片上傳失敗: \n' + e.message); } 
-        finally { hideLoading(); cameraVideo.play(); /* 🔥 恢復播放 */ }
+        finally { hideLoading(); cameraVideo.play(); /* 恢復播放 */ }
     });
 
     recordStartBtn.addEventListener('click', () => {
@@ -123,7 +139,7 @@ function bindEvents() {
 
     recordStopBtn.addEventListener('click', () => {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            document.getElementById('camera-video').pause(); // 🔥 結束時凍結在最後一幀
+            document.getElementById('camera-video').pause(); // 結束時凍結在最後一幀
             mediaRecorder.stop();
             isRecording = false;
             recordStartBtn.classList.remove('hidden'); recordStartBtn.classList.add('flex');
@@ -217,13 +233,35 @@ async function initSystem() {
 
 async function startCamera() {
     const cameraVideo = document.getElementById('camera-video');
-    if (cameraVideo.srcObject) cameraVideo.srcObject.getTracks().forEach(track => track.stop());
+    
+    // 完全停止並清除目前的攝影機軌道
+    if (cameraVideo.srcObject) {
+        cameraVideo.srcObject.getTracks().forEach(track => track.stop());
+        cameraVideo.srcObject = null; 
+    }
+    
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+        // 給手機硬體一點點時間切換
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // 🔥 動態判斷當前是直式還是橫式，向手機硬體請求正確的長寬比
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const idealWidth = isPortrait ? 720 : 1280;
+        const idealHeight = isPortrait ? 1280 : 720;
+
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: currentFacingMode, 
+                width: { ideal: idealWidth }, 
+                height: { ideal: idealHeight } 
+            }, 
+            audio: true 
+        });
+        
         cameraVideo.srcObject = stream;
         
         cameraVideo.onloadedmetadata = () => {
-            // 🔥 防變形核心：動態將視訊真實長寬同步給 Canvas
+            // 動態將視訊真實長寬同步給 Canvas
             const updateCanvasSize = () => {
                 if (!isRecording) {
                     document.getElementById('record-canvas').width = cameraVideo.videoWidth;
@@ -233,8 +271,9 @@ async function startCamera() {
                 }
             };
             updateCanvasSize();
-            // 監聽螢幕旋轉/視窗大小改變
-            cameraVideo.addEventListener('resize', updateCanvasSize);
+            
+            // 強制呼叫 play()
+            cameraVideo.play().catch(e => console.warn('播放失敗:', e));
             
             if (!animationFrameId) startCanvasRenderLoop();
         };
@@ -242,7 +281,7 @@ async function startCamera() {
 }
 
 function drawVideoWithTimestamp(ctx, width, height) {
-    // 拍照當下確保長寬抓取到最新旋轉後的真實解析度
+    // 拍照當下確保長寬抓取到最新真實解析度
     if (ctx.canvas.id === 'capture-canvas') {
         const cv = document.getElementById('camera-video');
         ctx.canvas.width = cv.videoWidth; ctx.canvas.height = cv.videoHeight;
@@ -295,7 +334,7 @@ async function uploadVideo() {
     } catch (e) { alert('❌ 影片上傳失敗: \n' + e.message); } 
     finally {
         hideLoading();
-        document.getElementById('camera-video').play(); // 🔥 恢復播放
+        document.getElementById('camera-video').play(); // 恢復播放
         document.getElementById('unqualified-check').checked = false;
         document.getElementById('business-name-container').classList.add('hidden');
         document.getElementById('business-name').value = '';

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>檢查量儀錶板 - 綜合管理系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dark-mode"> <div class="container" id="dashboardSystemBox">
+    <button class="btn-secondary" onclick="window.location.href='menu.html'">⬅ 返回選單</button>
+    
+    <div class="dash-header" style="margin-top:20px;">
+      <h1 class="dash-h1" id="dashName"></h1>
+      <h3 class="dash-h3" id="dashDept"></h3>
+    </div>
+
+    <div id="dashContent">
+      <p style="text-align:center; color:#8b949e; padding:50px;">載入數據中...</p>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

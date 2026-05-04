@@ -58,34 +58,40 @@
 
     </div>
   </div>
-  
-  <!-- 引入您原本的 API 腳本 -->
-  <script src="js/api.js"></script>
-  <script src="js/menu.js"></script>
 
-  <!-- 權限控制與畫面渲染腳本 -->
+  <!-- 權限控制與畫面渲染腳本 (移到外部腳本之前，避免被其他 js 報錯中斷) -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-        // 1. 嘗試從瀏覽器緩存 (localStorage 或 sessionStorage) 取得真實登入資訊
-        // 註：請確認您的 login.js 登入成功後，是將資訊存入哪裡。這裡預設抓取 department 與 userName
+        // 1. 取得登入資訊
         let currentDept = localStorage.getItem('department') || sessionStorage.getItem('department') || "";
         let currentName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || "";
 
-        // 2. 渲染部門與姓名到畫面上
-        document.getElementById('menuDept').innerText = currentDept;
-        document.getElementById('menuUser').innerText = currentName;
+        // 【關鍵修復】: 去除可能因為 JSON.stringify 存入時產生的多餘雙引號、單引號，以及前後空白
+        let cleanDept = currentDept.replace(/['"]/g, '').trim();
+        let cleanName = currentName.replace(/['"]/g, '').trim();
 
-        // 3. 權限判斷邏輯 (使用 .trim() 確保不會因為多餘的空白導致判斷失敗)
+        // 2. 渲染部門與姓名到畫面上
+        document.getElementById('menuDept').innerText = cleanDept;
+        document.getElementById('menuUser').innerText = cleanName;
+
+        // 3. 強化版權限判斷邏輯
         const btnEquipStats = document.getElementById('menuBtnEquipStats');
         
         if (btnEquipStats) {
-            if (currentDept.trim() === "設備") {
-                btnEquipStats.style.display = "flex"; // 顯示：只有設備部門看得到
+            // 改用 includes 檢查，確保只要字串裡有「設備」兩個字就會強制顯示
+            if (cleanDept.includes("設備")) {
+                btnEquipStats.style.display = "flex"; 
+                btnEquipStats.style.setProperty('display', 'flex', 'important'); // 加強權重，防 css 覆蓋
             } else {
-                btnEquipStats.style.display = "none"; // 隱藏：機械、行政等皆強制隱藏
+                btnEquipStats.style.display = "none";
+                btnEquipStats.style.setProperty('display', 'none', 'important');
             }
         }
     });
   </script>
+
+  <!-- 引入您原本的 API 腳本 -->
+  <script src="js/api.js"></script>
+  <script src="js/menu.js"></script>
 </body>
 </html>

@@ -5,31 +5,14 @@
   <title>主選單 - 綜合管理系統</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="css/style.css">
-  <style>
-    /* 這裡保留了基礎排版 CSS，若您 css/style.css 裡已有設定可以將此區塊移除 */
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
-    .container { max-width: 800px; width: 100%; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    .user-info-bar { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eaeaea; font-size: 1.05em; }
-    .dept-badge { background: #0d6efd; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.85em; font-weight: bold; margin-right: 8px; }
-    .header-title .sub-title { font-size: 1.2em; font-weight: bold; color: #444; margin-bottom: 15px; }
-    
-    .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; }
-    .menu-card { background: #ffffff; border: 1px solid #e0e0e0; padding: 25px 15px; text-align: center; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: inherit; }
-    .menu-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); border-color: #b3d4ff; }
-    .menu-icon { font-size: 2.5em; margin-bottom: 12px; }
-    .menu-text { font-size: 0.95em; color: #333; font-weight: 500; line-height: 1.4; }
-  </style>
 </head>
 <body>
   <div class="container" id="menuBox">
-    <!-- 使用者資訊列：部門 + 姓名 -->
     <div class="user-info-bar">
-      <span>
-        <span class="dept-badge" id="menuDept">載入中</span>
-        <span id="menuUser" style="font-weight:bold;"></span> 您好
-      </span>
+      <!-- 依照您的要求，維持原本的排列：部門在前，人員在後 -->
+      <span><span class="dept-badge" id="menuDept"></span> <span id="menuUser" style="font-weight:bold;"></span> 您好</span>
+      <button class="btn-outline" onclick="logout()">登出</button>
     </div>
-    
     <div class="header-title"><div class="sub-title">請選擇功能</div></div>
     
     <div class="menu-grid">
@@ -51,47 +34,48 @@
       </div>
       
       <!-- [新增的區域] 設備人員檢查種類統計總表 -->
+      <!-- 預設隱藏 (display: none)，為解決手機版開啟問題改用 <a> 標籤 -->
       <a href="https://script.google.com/macros/s/AKfycbxWR5_iJc3TIDnruVi9CVCV_PwYoDQhM0zDe-OYF4srlcyNfzstq6Ult517DeqIerUVvQ/exec" target="_blank" rel="noopener noreferrer" class="menu-card" id="menuBtnEquipStats" style="display: none;">
         <span class="menu-icon">🧰</span>
         <div class="menu-text">設備人員檢查<br>種類統計總表</div>
       </a>
-
     </div>
   </div>
+  
+  <script src="js/api.js"></script>
+  <script src="js/menu.js"></script>
 
-  <!-- 權限控制與畫面渲染腳本 (移到外部腳本之前，避免被其他 js 報錯中斷) -->
+  <!-- 新增：讀取登入變數與權限控制腳本 -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-        // 1. 取得登入資訊
+        // 1. 讀取登入時存入的真實資料
+        // 對應後端回傳的 user.department 與 user.userName
         let currentDept = localStorage.getItem('department') || sessionStorage.getItem('department') || "";
         let currentName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || "";
 
-        // 【關鍵修復】: 去除可能因為 JSON.stringify 存入時產生的多餘雙引號、單引號，以及前後空白
+        // 去除可能的引號與多餘空白 (避免 JSON.stringify 存入時產生 '"設備"' 導致判斷失敗)
         let cleanDept = currentDept.replace(/['"]/g, '').trim();
         let cleanName = currentName.replace(/['"]/g, '').trim();
 
-        // 2. 渲染部門與姓名到畫面上
-        document.getElementById('menuDept').innerText = cleanDept;
-        document.getElementById('menuUser').innerText = cleanName;
+        // 2. 渲染部門與姓名到畫面指定位置
+        // (如果您的 js/menu.js 已經有寫這段渲染邏輯，這裡會做為雙重確保)
+        const deptEl = document.getElementById('menuDept');
+        const userEl = document.getElementById('menuUser');
+        if (deptEl && cleanDept) deptEl.innerText = cleanDept;
+        if (userEl && cleanName) userEl.innerText = cleanName;
 
-        // 3. 強化版權限判斷邏輯
+        // 3. 設備專屬按鈕權限判斷
         const btnEquipStats = document.getElementById('menuBtnEquipStats');
-        
         if (btnEquipStats) {
-            // 改用 includes 檢查，確保只要字串裡有「設備」兩個字就會強制顯示
-            if (cleanDept.includes("設備")) {
-                btnEquipStats.style.display = "flex"; 
-                btnEquipStats.style.setProperty('display', 'flex', 'important'); // 加強權重，防 css 覆蓋
+            if (cleanDept === "設備") {
+                // 如果是設備部，清空 display: none，讓它恢復原本 css/style.css 設定的排列方式
+                btnEquipStats.style.display = ""; 
             } else {
+                // 如果不是設備部 (機械、行政等)，確保隱藏
                 btnEquipStats.style.display = "none";
-                btnEquipStats.style.setProperty('display', 'none', 'important');
             }
         }
     });
   </script>
-
-  <!-- 引入您原本的 API 腳本 -->
-  <script src="js/api.js"></script>
-  <script src="js/menu.js"></script>
 </body>
 </html>

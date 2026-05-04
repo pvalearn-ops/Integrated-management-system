@@ -8,10 +8,8 @@
     /* 這裡加入基礎 CSS 讓您能直接預覽版面效果，實際專案請維持引入外部 css/style.css */
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
     .container { max-width: 800px; width: 100%; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-    .user-info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eaeaea; }
+    .user-info-bar { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eaeaea; }
     .dept-badge { background: #0d6efd; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.85em; font-weight: bold; }
-    .btn-outline { border: 1px solid #dc3545; color: #dc3545; background: transparent; padding: 6px 16px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-    .btn-outline:hover { background: #dc3545; color: white; }
     .header-title .sub-title { font-size: 1.2em; font-weight: bold; color: #444; margin-bottom: 15px; }
     
     .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; }
@@ -24,8 +22,8 @@
 <body>
   <div class="container" id="menuBox">
     <div class="user-info-bar">
-      <span><span class="dept-badge" id="menuDept">載入中...</span> <span id="menuUser" style="font-weight:bold;"></span> 您好</span>
-      <button class="btn-outline" onclick="logout()">登出</button>
+      <!-- 移除了使用者名稱與登出按鈕，僅保留部門標示 -->
+      <span class="dept-badge" id="menuDept">載入中...</span>
     </div>
     <div class="header-title"><div class="sub-title">請選擇功能</div></div>
     
@@ -62,14 +60,15 @@
   <script>
     // 模擬從後端 API 取得的使用者資料
     const userData = {
-        name: "王小明",
         department: "機械"  // 💡 改為 "機械" 來測試，確認設備總表按鈕會被隱藏
     };
 
     document.addEventListener("DOMContentLoaded", () => {
-        // 1. 渲染使用者名稱與部門
-        document.getElementById('menuDept').innerText = userData.department;
-        document.getElementById('menuUser').innerText = userData.name;
+        // 1. 渲染部門
+        const deptElement = document.getElementById('menuDept');
+        if (deptElement) {
+            deptElement.innerText = userData.department;
+        }
 
         // 2. 權限判斷邏輯 (強化版)
         const btnEquipStats = document.getElementById('menuBtnEquipStats');
@@ -83,10 +82,6 @@
             }
         }
     });
-
-    function logout() {
-        alert("執行登出動作！");
-    }
   </script>
 </body>
 </html>

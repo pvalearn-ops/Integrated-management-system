@@ -15,7 +15,7 @@
     .header-title .sub-title { font-size: 1.2em; font-weight: bold; color: #444; margin-bottom: 15px; }
     
     .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; }
-    .menu-card { background: #ffffff; border: 1px solid #e0e0e0; padding: 25px 15px; text-align: center; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .menu-card { background: #ffffff; border: 1px solid #e0e0e0; padding: 25px 15px; text-align: center; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: inherit; }
     .menu-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); border-color: #b3d4ff; }
     .menu-icon { font-size: 2.5em; margin-bottom: 12px; }
     .menu-text { font-size: 0.95em; color: #333; font-weight: 500; line-height: 1.4; }
@@ -49,11 +49,11 @@
       
       <!-- [新增的區域] 設備人員檢查種類統計總表 -->
       <!-- 預設加入 style="display: none;" 將其隱藏，並給予專屬 id -->
-      <!-- 外部連結建議使用 window.open(..., '_blank') 另開分頁，以防使用者迷失在系統外 -->
-      <div class="menu-card" id="menuBtnEquipStats" style="display: none;" onclick="window.open('https://script.google.com/macros/s/AKfycbxWR5_iJc3TIDnruVi9CVCV_PwYoDQhM0zDe-OYF4srlcyNfzstq6Ult517DeqIerUVvQ/exec', '_blank')">
+      <!-- 【修復手機版開啟問題】: 將 div 改為 <a> 標籤，並使用 target="_blank" 屬性，避免被手機瀏覽器阻擋 -->
+      <a href="https://script.google.com/macros/s/AKfycbxWR5_iJc3TIDnruVi9CVCV_PwYoDQhM0zDe-OYF4srlcyNfzstq6Ult517DeqIerUVvQ/exec" target="_blank" rel="noopener noreferrer" class="menu-card" id="menuBtnEquipStats" style="display: none;">
         <span class="menu-icon">🧰</span>
         <div class="menu-text">設備人員檢查<br>種類統計總表</div>
-      </div>
+      </a>
 
     </div>
   </div>
@@ -63,7 +63,7 @@
     // 模擬從後端 API 取得的使用者資料
     const userData = {
         name: "王小明",
-        department: "設備"  // 💡 您可以試著把這裡改成 "廠務" 或其他部門，看看預覽畫面的變化
+        department: "機械"  // 💡 改為 "機械" 來測試，確認設備總表按鈕會被隱藏
     };
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -71,11 +71,16 @@
         document.getElementById('menuDept').innerText = userData.department;
         document.getElementById('menuUser').innerText = userData.name;
 
-        // 2. 依照「原本的模式」控制權限按鈕的顯示
-        // 判斷部門是否為 "設備"
-        if (userData.department === "設備") {
-            // 如果是設備部門，就將原本隱藏的卡片顯示出來 (這裡因為使用了 flexbox，所以用 flex)
-            document.getElementById('menuBtnEquipStats').style.display = "flex";
+        // 2. 權限判斷邏輯 (強化版)
+        const btnEquipStats = document.getElementById('menuBtnEquipStats');
+        
+        if (btnEquipStats) {
+            // 嚴格判斷：只有完全等於 "設備" 才顯示，其餘一律強制隱藏
+            if (userData.department === "設備") {
+                btnEquipStats.style.display = "flex";
+            } else {
+                btnEquipStats.style.display = "none"; // 非設備部門，強制隱藏
+            }
         }
     });
 

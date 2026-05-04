@@ -45,37 +45,32 @@
   <script src="js/api.js"></script>
   <script src="js/menu.js"></script>
 
-  <!-- 新增：讀取登入變數與權限控制腳本 -->
+  <!-- 新增：畫面渲染後動態權限控制腳本 -->
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        // 1. 讀取登入時存入的真實資料
-        // 對應後端回傳的 user.department 與 user.userName
-        let currentDept = localStorage.getItem('department') || sessionStorage.getItem('department') || "";
-        let currentName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || "";
-
-        // 去除可能的引號與多餘空白 (避免 JSON.stringify 存入時產生 '"設備"' 導致判斷失敗)
-        let cleanDept = currentDept.replace(/['"]/g, '').trim();
-        let cleanName = currentName.replace(/['"]/g, '').trim();
-
-        // 2. 渲染部門與姓名到畫面指定位置
-        // (如果您的 js/menu.js 已經有寫這段渲染邏輯，這裡會做為雙重確保)
+    // 由於您的 js/menu.js 會非同步(API)載入資料，我們直接監聽畫面上的「部門」文字
+    // 這樣 100% 不會因為 LocalStorage 的 Key 不對而導致判斷失敗
+    const checkPermission = setInterval(() => {
         const deptEl = document.getElementById('menuDept');
-        const userEl = document.getElementById('menuUser');
-        if (deptEl && cleanDept) deptEl.innerText = cleanDept;
-        if (userEl && cleanName) userEl.innerText = cleanName;
-
-        // 3. 設備專屬按鈕權限判斷
-        const btnEquipStats = document.getElementById('menuBtnEquipStats');
-        if (btnEquipStats) {
-            if (cleanDept === "設備") {
-                // 如果是設備部，清空 display: none，讓它恢復原本 css/style.css 設定的排列方式
-                btnEquipStats.style.display = ""; 
-            } else {
-                // 如果不是設備部 (機械、行政等)，確保隱藏
-                btnEquipStats.style.display = "none";
+        
+        // 等待 menu.js 將部門文字填入 (只要不是空白就開始判斷)
+        if (deptEl && deptEl.innerText.trim() !== "") {
+            const actualDept = deptEl.innerText.trim();
+            const btnEquipStats = document.getElementById('menuBtnEquipStats');
+            
+            if (btnEquipStats) {
+                // 如果畫面上確實顯示了包含「設備」兩個字，就將按鈕顯示出來
+                if (actualDept.includes("設備")) {
+                    btnEquipStats.style.display = ""; 
+                } else {
+                    // 否則強制隱藏 (例如：機械、行政)
+                    btnEquipStats.style.display = "none";
+                }
             }
+            
+            // 判斷完畢後，停止這個定時檢查器以節省效能
+            clearInterval(checkPermission);
         }
-    });
+    }, 200); // 每 0.2 秒檢查一次，直到文字出現為止
   </script>
 </body>
 </html>

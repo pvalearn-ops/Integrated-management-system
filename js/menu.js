@@ -10,6 +10,7 @@ window.onload = () => {
 
   if (user.deptName === "行政") {
     document.getElementById('menuBtnDashboard').style.display = 'none';
+    document.getElementById('menuBtnSurvey').style.display = '';
   }
 };
 

@@ -1,0 +1,232 @@
+/* css/survey.css - 新增問卷管理專用樣式 */
+.survey-action-bar {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+.survey-action-bar input[type="text"] {
+  margin: 0;
+  flex-grow: 1;
+}
+.survey-action-bar button {
+  width: auto;
+  white-space: nowrap;
+}
+
+.survey-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.survey-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: box-shadow 0.2s;
+}
+.survey-card:hover {
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.survey-info {
+  flex-grow: 1;
+}
+.survey-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: #202124;
+  margin-bottom: 5px;
+}
+.survey-meta {
+  font-size: 0.85em;
+  color: #5f6368;
+}
+
+.survey-ops {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* 浮動視窗 / Drawer 樣式 */
+.stats-container {
+  max-height: 80vh;
+  overflow-y: auto;
+  padding-right: 5px;
+  color: #333;
+}
+.stats-header-summary {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 25px;
+  background: #f1f3f4;
+  padding: 15px;
+  border-radius: 8px;
+  color: #202124;
+  font-weight: bold;
+  border: 1px solid #dadce0;
+}
+
+.stats-card-group {
+  margin-bottom: 30px;
+}
+.stats-card-title {
+  font-weight: bold;
+  border-left: 4px solid #1a73e8;
+  padding-left: 12px;
+  margin-bottom: 15px;
+  font-size: 1.1em;
+  color: #202124;
+}
+
+/* 滿意度進度條樣式 */
+.stats-progress-row {
+  margin-bottom: 20px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  padding: 15px;
+  border-radius: 8px;
+}
+.stats-progress-label {
+  font-size: 0.95em;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  color: #202124;
+}
+.stats-progress-bar-container {
+  height: 10px;
+  background: #f1f3f4;
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+}
+.stats-progress-bar-fill {
+  height: 100%;
+  background-color: #1a73e8; /* 使用簡潔且高反差的 Google 藍 */
+  border-radius: 5px;
+}
+
+/* 單位分佈比例 */
+.unit-distribution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.unit-tag {
+  background: #f1f3f4;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  color: #202124;
+  border: 1px solid #dadce0;
+}
+
+/* 問卷回饋清單 */
+.feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.feedback-item {
+  background: #fafafa;
+  padding: 12px 15px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #5f6368;
+}
+.feedback-name {
+  font-weight: bold;
+  color: #202124;
+  margin-bottom: 5px;
+  font-size: 0.85em;
+}
+
+/* 二維碼彈出 */
+.qrcode-box {
+  text-align: center;
+  padding: 15px;
+}
+.qrcode-img {
+  width: 180px;
+  height: 180px;
+  margin-bottom: 15px;
+}
+
+/* 列印專用樣式 */
+@media print {
+  body {
+    background: white !important;
+    color: #000 !important;
+    padding: 0 !important;
+  }
+  .container {
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  .survey-action-bar,
+  .survey-list,
+  .modal-overlay,
+  .user-info-bar,
+  .header-title,
+  .survey-ops,
+  #menuBox {
+    display: none !important;
+  }
+  
+  /* 顯示列印統計版面 */
+  #printArea {
+    display: block !important;
+  }
+  .stats-container {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* 報表邊框與黑白高反差 */
+  .stats-header-summary {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+  }
+  .stats-progress-row {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+    page-break-inside: avoid;
+  }
+  .unit-tag {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+  }
+  .feedback-item {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+    border-left: 5px solid #000000 !important;
+    page-break-inside: avoid;
+  }
+  .stats-progress-bar-container {
+    background: #e0e0e0 !important;
+    border: 1px solid #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .stats-progress-bar-fill {
+    background-color: #555555 !important; /* 印出來時用深灰色代表進度，不花俏 */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

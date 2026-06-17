@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>問卷管理 - 綜合管理系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/survey.css">
+</head>
+<body>
+  <div class="container" id="surveyMainBox">
+    <div class="user-info-bar">
+      <span><span class="dept-badge" id="surveyDept">行政</span> <span id="surveyUser" style="font-weight:bold;">行政同仁</span> 您好</span>
+      <div>
+        <button class="btn-secondary" onclick="window.location.href='menu.html'">回主選單</button>
+      </div>
+    </div>
+    
+    <div class="header-title">
+      <div class="sub-title">自動產生 Google 問卷</div>
+      <div class="asso-name">本功能僅限「行政」同仁使用，建立的問卷將分類儲存於您專屬的 Google Drive 目錄下。</div>
+    </div>
+    
+    <!-- 新增問卷操作列 -->
+    <div class="survey-action-bar">
+      <input type="text" id="newSurveyTitle" placeholder="請輸入問卷課程/活動標題 (例如：115年度產業機械操作實務訓練意見調查表)">
+      <button class="btn-primary" id="btnCreateSurvey" onclick="handleCreateSurvey()">建立問卷</button>
+    </div>
+
+    <!-- 問卷列表 -->
+    <div class="survey-section">
+      <div class="section-title">
+        <span>我建立的問卷清單</span>
+        <button class="btn-secondary" onclick="loadSurveyList()" style="font-size: 0.85em; padding: 3px 10px;">整理列表</button>
+      </div>
+      <div id="surveyList" class="survey-list">
+        <!-- 動態載入問卷項目 -->
+        <div style="text-align: center; color: #999; padding: 20px;">資料載入中，請稍候...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code 彈出燈箱 -->
+  <div id="qrModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="section-title">分享問卷</div>
+      <div class="qrcode-box">
+        <img id="qrImg" class="qrcode-img" src="" alt="問卷 QR Code">
+        <p style="font-size: 0.9em; word-break: break-all; margin-bottom: 15px;">
+          連結：<a id="qrLink" href="" target="_blank">點此開啟問卷</a>
+        </p>
+        <button class="btn-primary" style="margin-bottom: 10px;" onclick="copyQrLink()">複製連結</button>
+        <button class="btn-secondary" style="width: 100%;" onclick="closeQrModal()">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統計分析圖表彈出燈箱 (與列印共用) -->
+  <div id="statsModal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width: 700px; width: 95%;">
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="statsModalTitle">問卷回覆統計分析</span>
+        <div>
+          <button class="btn-outline" onclick="printStats()" style="font-size:0.85em; padding: 4px 10px; margin-right: 5px;">列印報表</button>
+          <button class="btn-secondary" onclick="closeStatsModal()" style="font-size:0.85em; padding: 4px 10px;">關閉</button>
+        </div>
+      </div>
+      
+      <div id="statsContent" class="stats-container">
+        <!-- 統計數據內容動態生成 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 列印專用區域 -->
+  <div id="printArea" style="display: none;"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/survey.js"></script>
+</body>
+</html>

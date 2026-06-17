@@ -1,0 +1,320 @@
+// js/survey.js - 問卷管理前端邏輯
+
+window.onload = async () => {
+  const user = getCurrentUser();
+  if (!user.userName) {
+    window.location.href = "index.html";
+    return;
+  }
+  
+  if (user.deptName !== "行政") {
+    alert("本功能僅供行政同仁使用！將返回主選單。");
+    window.location.href = "menu.html";
+    return;
+  }
+
+  document.getElementById('surveyUser').innerText = user.userName;
+  document.getElementById('surveyDept').innerText = user.deptName;
+
+  await loadSurveyList();
+};
+
+/**
+ * 載入當前使用者的問卷清單
+ */
+async function loadSurveyList() {
+  const surveyListEl = document.getElementById('surveyList');
+  surveyListEl.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">載入中...</div>';
+  
+  const user = getCurrentUser();
+  const res = await callApi('getSurveyList', {
+    userName: user.userName,
+    deptName: user.deptName
+  });
+
+  if (!res.success) {
+    surveyListEl.innerHTML = `<div style="text-align: center; color: #d93025; padding: 20px;">載入失敗：${res.message}</div>`;
+    return;
+  }
+
+  if (res.surveys.length === 0) {
+    surveyListEl.innerHTML = '<div style="text-align: center; color: #999; padding: 30px;">您目前尚未建立任何問卷。</div>';
+    return;
+  }
+
+  surveyListEl.innerHTML = '';
+  res.surveys.forEach(survey => {
+    // 格式化建立時間，若是 Date 物件轉的字串直接截取
+    const dateStr = String(survey.createdTime).substring(0, 16);
+    
+    const card = document.createElement('div');
+    card.className = 'survey-card';
+    card.innerHTML = `
+      <div class="survey-info">
+        <div class="survey-title">${escapeHtml(survey.title)}</div>
+        <div class="survey-meta">建立時間：${dateStr}</div>
+      </div>
+      <div class="survey-ops">
+        <button class="btn-outline" style="padding: 5px 12px; font-size:0.9em;" onclick="showQrModal('${survey.url}')">分享 (QR)</button>
+        <button class="btn-primary" style="padding: 5px 12px; font-size:0.9em; width:auto;" onclick="showStatsModal('${survey.id}')">統計分析</button>
+        <button class="btn-secondary" style="padding: 5px 12px; font-size:0.9em; color:#d93025; border-color:#fce8e6;" onclick="handleDeleteSurvey('${survey.id}', '${escapeJs(survey.title)}')">刪除</button>
+      </div>
+    `;
+    surveyListEl.appendChild(card);
+  });
+}
+
+/**
+ * 處理建立問卷
+ */
+async function handleCreateSurvey() {
+  const titleInput = document.getElementById('newSurveyTitle');
+  const title = titleInput.value.trim();
+  
+  if (!title) {
+    alert("請輸入問卷課程/活動標題！");
+    return;
+  }
+
+  const btn = document.getElementById('btnCreateSurvey');
+  btn.disabled = true;
+  btn.innerText = "建立中...";
+
+  const user = getCurrentUser();
+  const res = await callApi('createSurvey', {
+    userName: user.userName,
+    deptName: user.deptName,
+    title: title
+  });
+
+  btn.disabled = false;
+  btn.innerText = "建立問卷";
+
+  if (res.success) {
+    alert(`問卷「${title}」已建立成功！`);
+    titleInput.value = "";
+    await loadSurveyList();
+    showQrModal(res.url);
+  } else {
+    alert(`建立失敗：${res.message}`);
+  }
+}
+
+/**
+ * 處理刪除問卷
+ */
+async function handleDeleteSurvey(surveyId, title) {
+  if (!confirm(`確定要刪除「${title}」問卷嗎？\n刪除後會將問卷與回覆檔案移至垃圾桶。`)) {
+    return;
+  }
+
+  const user = getCurrentUser();
+  const res = await callApi('deleteSurvey', {
+    userName: user.userName,
+    deptName: user.deptName,
+    surveyId: surveyId
+  });
+
+  if (res.success) {
+    alert("刪除問卷成功！");
+    await loadSurveyList();
+  } else {
+    alert(`刪除失敗：${res.message}`);
+  }
+}
+
+/**
+ * 分享與 QR Code 視窗
+ */
+function showQrModal(url) {
+  const modal = document.getElementById('qrModal');
+  const qrImg = document.getElementById('qrImg');
+  const qrLink = document.getElementById('qrLink');
+  
+  // 使用 https://api.qrserver.com/ 免費且無流量限制產生 QR Code 圖片
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(url)}`;
+  qrImg.src = qrUrl;
+  qrLink.href = url;
+  qrLink.innerText = url;
+  
+  modal.classList.remove('hidden');
+}
+
+function closeQrModal() {
+  document.getElementById('qrModal').classList.add('hidden');
+}
+
+function copyQrLink() {
+  const link = document.getElementById('qrLink').href;
+  navigator.clipboard.writeText(link).then(() => {
+    alert("問卷連結已複製至剪貼簿！");
+  }).catch(() => {
+    alert("複製失敗，請手動複製連結：" + link);
+  });
+}
+
+/**
+ * 顯示問卷統計燈箱
+ */
+async function showStatsModal(surveyId) {
+  const modal = document.getElementById('statsModal');
+  const content = document.getElementById('statsContent');
+  
+  content.innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">正在從 Google 試算表統計回覆資料，請稍候...</div>';
+  modal.classList.remove('hidden');
+
+  const user = getCurrentUser();
+  const res = await callApi('getSurveyStats', {
+    userName: user.userName,
+    deptName: user.deptName,
+    surveyId: surveyId
+  });
+
+  if (!res.success) {
+    content.innerHTML = `<div style="text-align: center; color: #d93025; padding: 50px;">載入統計失敗：${res.message}</div>`;
+    return;
+  }
+
+  const stats = res.stats;
+  
+  if (res.count === 0 || !stats || stats.count === 0) {
+    content.innerHTML = `<div style="text-align: center; color: #999; padding: 50px;">${res.message || '目前尚無人填寫此問卷。'}</div>`;
+    return;
+  }
+
+  // 生成統計圖表 HTML
+  let html = `
+    <div class="stats-header-summary">
+      <div>問卷名稱：${escapeHtml(stats.title)}</div>
+      <div>回收份數：${stats.count} 份</div>
+    </div>
+  `;
+
+  // 1. 單位分佈比例
+  html += `
+    <div class="stats-card-group">
+      <div class="stats-card-title">填寫者單位分佈</div>
+      <div class="unit-distribution">
+  `;
+  for (const unit in stats.units) {
+    const count = stats.units[unit];
+    const pct = Math.round((count / stats.count) * 100);
+    html += `<div class="unit-tag">${escapeHtml(unit)}: <strong>${count} 份</strong> (${pct}%)</div>`;
+  }
+  html += `
+      </div>
+    </div>
+  `;
+
+  // 2. 評分題統計 (第 1 到 7 題)
+  html += `
+    <div class="stats-card-group">
+      <div class="stats-card-title">滿意度量化評分 (百分比單選格統計)</div>
+  `;
+  for (const qTitle in stats.scores) {
+    const sData = stats.scores[qTitle];
+    html += `
+      <div class="stats-progress-row">
+        <div class="stats-progress-label">
+          <span>${escapeHtml(qTitle)}</span>
+          <span>滿意度平均：<strong>${sData.average}%</strong></span>
+        </div>
+        <div class="stats-progress-bar-container">
+          <div class="stats-progress-bar-fill" style="width: ${sData.percentage}%"></div>
+        </div>
+        <div style="font-size: 0.75em; color: #777; margin-top: 2px; text-align: right;">
+          分佈：100%(${sData['100%']}人) | 90%(${sData['90%']}人) | 80%(${sData['80%']}人) | 70%(${sData['70%']}人) | 60%(${sData['60%']}人) | 50%(${sData['50%']}人) | 其他(${sData['其他']}人)
+        </div>
+      </div>
+    `;
+  }
+  html += `</div>`;
+
+  // 3. 建議與意見回饋 (8)
+  html += `
+    <div class="stats-card-group">
+      <div class="stats-card-title">8. 針對課程內容及其他相關問題回饋</div>
+      <div class="feedback-list">
+  `;
+  if (stats.feedbacks.length === 0) {
+    html += `<div style="color: #999; font-size: 0.9em; padding: 5px;">無填寫回饋</div>`;
+  } else {
+    stats.feedbacks.forEach(fb => {
+      html += `
+        <div class="feedback-item">
+          <div class="feedback-name">${escapeHtml(fb.name)}</div>
+          <div>${escapeHtml(fb.content)}</div>
+        </div>
+      `;
+    });
+  }
+  html += `
+      </div>
+    </div>
+  `;
+
+  // 4. 未來辦理課程建議 (9)
+  html += `
+    <div class="stats-card-group">
+      <div class="stats-card-title">9. 希望未來辦理之訓練課程內容</div>
+      <div class="feedback-list">
+  `;
+  if (stats.futureDemands.length === 0) {
+    html += `<div style="color: #999; font-size: 0.9em; padding: 5px;">無填寫回饋</div>`;
+  } else {
+    stats.futureDemands.forEach(fd => {
+      html += `
+        <div class="feedback-item">
+          <div class="feedback-name">${escapeHtml(fd.name)}</div>
+          <div>${escapeHtml(fd.content)}</div>
+        </div>
+      `;
+    });
+  }
+  html += `
+      </div>
+    </div>
+  `;
+
+  content.innerHTML = html;
+}
+
+function closeStatsModal() {
+  document.getElementById('statsModal').classList.add('hidden');
+}
+
+/**
+ * 列印統計分析報表
+ */
+function printStats() {
+  const statsContent = document.getElementById('statsContent').innerHTML;
+  const printArea = document.getElementById('printArea');
+  
+  // 將統計內容複製到列印專用區
+  printArea.innerHTML = `
+    <h2 style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px;">
+      問卷滿意度回覆統計分析報告
+    </h2>
+    ${statsContent}
+  `;
+  
+  // 觸發列印
+  window.print();
+}
+
+// 輔助函式
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+}
+
+function escapeJs(str) {
+  if (!str) return '';
+  return str.replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '\\"');
+}

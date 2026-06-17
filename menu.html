@@ -33,6 +33,12 @@
         <div class="menu-text">GPS相機</div>
       </div>
       
+      <!-- [行政專屬] 自動產生問卷功能 -->
+      <div class="menu-card" id="menuBtnSurvey" onclick="window.location.href='survey.html'" style="display: none;">
+        <span class="menu-icon">📋</span>
+        <div class="menu-text">自動產生問卷</div>
+      </div>
+      
       <!-- [新增的區域] 設備人員檢查種類統計總表 -->
       <!-- 預設隱藏 (display: none)，為解決手機版開啟問題改用 <a> 標籤 -->
       <a href="https://script.google.com/macros/s/AKfycbxWR5_iJc3TIDnruVi9CVCV_PwYoDQhM0zDe-OYF4srlcyNfzstq6Ult517DeqIerUVvQ/exec" target="_blank" rel="noopener noreferrer" class="menu-card" id="menuBtnEquipStats" style="display: none;">
@@ -64,6 +70,15 @@
                 } else {
                     // 否則強制隱藏 (例如：機械、行政)
                     btnEquipStats.style.display = "none";
+                }
+            }
+
+            const btnSurvey = document.getElementById('menuBtnSurvey');
+            if (btnSurvey) {
+                if (actualDept.includes("行政")) {
+                    btnSurvey.style.display = "";
+                } else {
+                    btnSurvey.style.display = "none";
                 }
             }
             

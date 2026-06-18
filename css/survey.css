@@ -229,4 +229,86 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  
+  /* 明細列印自適應 */
+  .print-responses-table table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9px !important;
+  }
+  .print-responses-table th, 
+  .print-responses-table td {
+    border: 1px solid #000000 !important;
+    padding: 5px !important;
+    word-break: break-all !important;
+    white-space: normal !important;
+  }
+  .print-responses-table th {
+    background-color: #e8eaed !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* 列印時特別限制寬度以把空間讓給「單位名稱」和「姓名」 */
+  .print-responses-table th:nth-child(1),
+  .print-responses-table td:nth-child(1) {
+    width: 75px !important;
+    min-width: 75px !important;
+  }
+  .print-responses-table th:nth-child(2),
+  .print-responses-table td:nth-child(2) {
+    width: 140px !important;
+    min-width: 140px !important;
+  }
+  .print-responses-table th:nth-child(3),
+  .print-responses-table td:nth-child(3) {
+    width: 80px !important;
+    min-width: 80px !important;
+  }
+  /* 評分題百分比欄位特別壓縮 */
+  .print-responses-table th:nth-child(4), .print-responses-table td:nth-child(4),
+  .print-responses-table th:nth-child(5), .print-responses-table td:nth-child(5),
+  .print-responses-table th:nth-child(6), .print-responses-table td:nth-child(6),
+  .print-responses-table th:nth-child(7), .print-responses-table td:nth-child(7),
+  .print-responses-table th:nth-child(8), .print-responses-table td:nth-child(8),
+  .print-responses-table th:nth-child(9), .print-responses-table td:nth-child(9),
+  .print-responses-table th:nth-child(10), .print-responses-table td:nth-child(10) {
+    width: 45px !important;
+    min-width: 45px !important;
+    text-align: center !important;
+  }
+}
+
+/* 明細表格樣式 */
+.detail-table th {
+  background-color: #f1f3f4;
+  font-weight: bold;
+  color: #202124;
+}
+.detail-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* 網頁上表格欄位寬度控制（支援滾動） */
+.detail-table th:nth-child(1), .detail-table td:nth-child(1) {
+  width: 90px;
+  min-width: 90px;
+}
+.detail-table th:nth-child(2), .detail-table td:nth-child(2) {
+  width: 160px;
+  min-width: 160px;
+}
+.detail-table th:nth-child(3), .detail-table td:nth-child(3) {
+  width: 90px;
+  min-width: 90px;
+}
+.detail-table th:nth-child(4), .detail-table td:nth-child(4),
+.detail-table th:nth-child(5), .detail-table td:nth-child(5),
+.detail-table th:nth-child(6), .detail-table td:nth-child(6),
+.detail-table th:nth-child(7), .detail-table td:nth-child(7),
+.detail-table th:nth-child(8), .detail-table td:nth-child(8),
+.detail-table th:nth-child(9), .detail-table td:nth-child(9),
+.detail-table th:nth-child(10), .detail-table td:nth-child(10) {
+  width: 55px;
+  min-width: 55px;
+  text-align: center;
 }

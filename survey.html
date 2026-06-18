@@ -72,6 +72,23 @@
     </div>
   </div>
 
+  <!-- 回覆明細彈出燈箱 (與列印共用) -->
+  <div id="responsesModal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width: 950px; width: 98%;">
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="responsesModalTitle">問卷回覆明細列表</span>
+        <div>
+          <button class="btn-outline" onclick="printResponses()" style="font-size:0.85em; padding: 4px 10px; margin-right: 5px;">列印明細</button>
+          <button class="btn-secondary" onclick="closeResponsesModal()" style="font-size:0.85em; padding: 4px 10px;">關閉</button>
+        </div>
+      </div>
+      
+      <div id="responsesContent" class="responses-container" style="overflow-x: auto; max-height: 500px; margin-top: 15px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+        <!-- 明細表格內容動態生成 -->
+      </div>
+    </div>
+  </div>
+
   <!-- 列印專用區域 -->
   <div id="printArea" style="display: none;"></div>
 

@@ -57,6 +57,7 @@ async function loadSurveyList() {
       <div class="survey-ops">
         <button class="btn-outline" style="padding: 5px 12px; font-size:0.9em;" onclick="showQrModal('${survey.url}')">分享 (QR)</button>
         <button class="btn-primary" style="padding: 5px 12px; font-size:0.9em; width:auto;" onclick="showStatsModal('${survey.id}')">統計分析</button>
+        <button class="btn-outline" style="padding: 5px 12px; font-size:0.9em; border-color:#0b5394; color:#0b5394;" onclick="showResponsesModal('${survey.id}')">回覆明細</button>
         <button class="btn-secondary" style="padding: 5px 12px; font-size:0.9em; color:#d93025; border-color:#fce8e6;" onclick="handleDeleteSurvey('${survey.id}', '${escapeJs(survey.title)}')">刪除</button>
       </div>
     `;
@@ -190,23 +191,7 @@ async function showStatsModal(surveyId) {
     </div>
   `;
 
-  // 1. 單位分佈比例
-  html += `
-    <div class="stats-card-group">
-      <div class="stats-card-title">填寫者單位分佈</div>
-      <div class="unit-distribution">
-  `;
-  for (const unit in stats.units) {
-    const count = stats.units[unit];
-    const pct = Math.round((count / stats.count) * 100);
-    html += `<div class="unit-tag">${escapeHtml(unit)}: <strong>${count} 份</strong> (${pct}%)</div>`;
-  }
-  html += `
-      </div>
-    </div>
-  `;
-
-  // 2. 評分題統計 (第 1 到 7 題)
+  // 1. 評分題統計 (第 1 到 7 題)
   html += `
     <div class="stats-card-group">
       <div class="stats-card-title">滿意度量化評分 (百分比單選格統計)</div>
@@ -230,7 +215,7 @@ async function showStatsModal(surveyId) {
   }
   html += `</div>`;
 
-  // 3. 建議與意見回饋 (8)
+  // 2. 建議與意見回饋 (8)
   html += `
     <div class="stats-card-group">
       <div class="stats-card-title">8. 針對課程內容及其他相關問題回饋</div>
@@ -253,7 +238,7 @@ async function showStatsModal(surveyId) {
     </div>
   `;
 
-  // 4. 未來辦理課程建議 (9)
+  // 3. 未來辦理課程建議 (9)
   html += `
     <div class="stats-card-group">
       <div class="stats-card-title">9. 希望未來辦理之訓練課程內容</div>
@@ -290,7 +275,6 @@ function printStats() {
   const statsContent = document.getElementById('statsContent').innerHTML;
   const printArea = document.getElementById('printArea');
   
-  // 將統計內容複製到列印專用區
   printArea.innerHTML = `
     <h2 style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px;">
       問卷滿意度回覆統計分析報告
@@ -298,8 +282,111 @@ function printStats() {
     ${statsContent}
   `;
   
-  // 觸發列印
   window.print();
+}
+
+/**
+ * 顯示問卷回覆明細燈箱
+ */
+async function showResponsesModal(surveyId) {
+  const modal = document.getElementById('responsesModal');
+  const content = document.getElementById('responsesContent');
+  
+  content.innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">正在讀取回覆明細資料，請稍候...</div>';
+  modal.classList.remove('hidden');
+
+  const user = getCurrentUser();
+  const res = await callApi('getSurveyStats', {
+    userName: user.userName,
+    deptName: user.deptName,
+    surveyId: surveyId
+  });
+
+  if (!res.success) {
+    content.innerHTML = `<div style="text-align: center; color: #d93025; padding: 50px;">載入明細失敗：${res.message}</div>`;
+    return;
+  }
+
+  if (!res.rows || res.rows.length === 0) {
+    content.innerHTML = `<div style="text-align: center; color: #999; padding: 50px;">目前尚無人填寫此問卷。</div>`;
+    return;
+  }
+
+  // 製造表格 HTML
+  let html = `
+    <table class="detail-table" style="width: 100%; border-collapse: collapse; min-width: 900px; text-align: left; font-size: 0.9em; color: #333;">
+      <thead>
+        <tr style="background-color: #f1f3f4; border-bottom: 2px solid #ddd;">
+  `;
+  
+  res.headers.forEach(header => {
+    const title = getShortHeader(header);
+    html += `<th style="padding: 10px; border: 1px solid #ddd; word-break: break-all; white-space: normal;" title="${escapeHtml(String(header))}">${escapeHtml(title)}</th>`;
+  });
+  
+  html += `
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  res.rows.forEach(row => {
+    html += `<tr style="border-bottom: 1px solid #ddd;">`;
+    row.forEach(cell => {
+      html += `<td style="padding: 10px; border: 1px solid #ddd; word-break: break-all; white-space: pre-line;">${escapeHtml(String(cell))}</td>`;
+    });
+    html += `</tr>`;
+  });
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  modal.dataset.title = res.stats.title;
+  content.innerHTML = html;
+}
+
+function closeResponsesModal() {
+  document.getElementById('responsesModal').classList.add('hidden');
+}
+
+/**
+ * 列印回覆明細報表
+ */
+function printResponses() {
+  const modal = document.getElementById('responsesModal');
+  const title = modal.dataset.title || '問卷回覆明細';
+  const tableHtml = document.getElementById('responsesContent').innerHTML;
+  const printArea = document.getElementById('printArea');
+  
+  printArea.innerHTML = `
+    <h2 style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px;">
+      ${escapeHtml(title)} - 問卷回覆明細報表
+    </h2>
+    <div class="print-responses-table">
+      ${tableHtml}
+    </div>
+  `;
+  
+  window.print();
+}
+
+function getShortHeader(header) {
+  const h = String(header || '').trim();
+  if (h.includes('時間')) return '時間戳記';
+  if (h.includes('單位')) return '單位名稱';
+  if (h.includes('姓名')) return '姓名';
+  if (h.includes('1.本課程內容') || h.includes('預期程度')) return '1.預期達成';
+  if (h.includes('2.講師之評價') || h.includes('講師之評價')) return '2.講師評價';
+  if (h.includes('3.講師講授內容') || h.includes('整體評價是')) return '3.講授整體';
+  if (h.includes('4.課程教材') || h.includes('教材內容之評價')) return '4.教材評價';
+  if (h.includes('5.課程硬體') || h.includes('硬體設施與環境')) return '5.硬體環境';
+  if (h.includes('6.您個人在') || h.includes('個人在此次訓練')) return '6.個人收穫';
+  if (h.includes('7.整體而言') || h.includes('本次訓練的滿意度')) return '7.整體滿意';
+  if (h.includes('8.針對課程') || h.includes('8.針對')) return '8.意見回饋';
+  if (h.includes('9.您希望未來') || h.includes('9.您希望')) return '9.未來建議';
+  return h.length > 15 ? h.substring(0, 15) + '...' : h;
 }
 
 // 輔助函式

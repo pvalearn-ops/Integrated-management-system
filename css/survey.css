@@ -168,22 +168,17 @@
 
 /* 列印專用樣式 */
 @media print {
+  @page {
+    size: auto;
+    margin: 15mm;
+  }
   body {
     background: white !important;
     color: #000 !important;
     padding: 0 !important;
   }
-  .container {
-    box-shadow: none !important;
-    padding: 0 !important;
-    max-width: 100% !important;
-  }
-  .survey-action-bar,
-  .survey-list,
+  #surveyMainBox,
   .modal-overlay,
-  .user-info-bar,
-  .header-title,
-  .survey-ops,
   #menuBox {
     display: none !important;
   }
@@ -247,6 +242,10 @@
     background-color: #e8eaed !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    height: 48px !important;
+    vertical-align: middle !important;
+    line-height: 1.3 !important;
+    padding: 6px 3px !important;
   }
   /* 列印時特別限制寬度以把空間讓給「單位名稱」和「姓名」 */
   .print-responses-table th:nth-child(1),
@@ -283,6 +282,10 @@
   background-color: #f1f3f4;
   font-weight: bold;
   color: #202124;
+  height: 48px;
+  vertical-align: middle;
+  line-height: 1.3;
+  padding: 6px 4px;
 }
 .detail-table tr:hover {
   background-color: #f8f9fa;

@@ -226,6 +226,9 @@
   }
   
   /* 明細列印自適應 */
+  .print-responses-table .op-col {
+    display: none !important;
+  }
   .print-responses-table table {
     width: 100% !important;
     border-collapse: collapse !important;

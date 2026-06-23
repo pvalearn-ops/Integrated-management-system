@@ -288,6 +288,8 @@ function printStats() {
 /**
  * 顯示問卷回覆明細燈箱
  */
+
+
 async function showResponsesModal(surveyId) {
   const modal = document.getElementById('responsesModal');
   const content = document.getElementById('responsesContent');
@@ -312,6 +314,26 @@ async function showResponsesModal(surveyId) {
     return;
   }
 
+  // 尋找「姓名」欄位的索引值
+  let nameColIndex = -1;
+  for (let c = 0; c < res.headers.length; c++) {
+    if (String(res.headers[c]).trim() === '姓名') {
+      nameColIndex = c;
+      break;
+    }
+  }
+
+  // 計算每個姓名出現的次數
+  const nameCounts = {};
+  if (nameColIndex !== -1) {
+    res.rows.forEach(row => {
+      const nameVal = String(row[nameColIndex] || '').trim();
+      if (nameVal) {
+        nameCounts[nameVal] = (nameCounts[nameVal] || 0) + 1;
+      }
+    });
+  }
+
   // 製造表格 HTML
   let html = `
     <table class="detail-table" style="width: 100%; border-collapse: collapse; min-width: 900px; text-align: left; font-size: 0.9em; color: #333;">
@@ -324,17 +346,36 @@ async function showResponsesModal(surveyId) {
     html += `<th style="padding: 10px; border: 1px solid #ddd; word-break: break-all; white-space: normal;" title="${escapeHtml(String(header))}">${escapeHtml(title)}</th>`;
   });
   
+  // 多加一個操作欄位
   html += `
+          <th class="op-col" style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 80px; min-width: 80px;">操作</th>
         </tr>
       </thead>
       <tbody>
   `;
 
-  res.rows.forEach(row => {
-    html += `<tr style="border-bottom: 1px solid #ddd;">`;
-    row.forEach(cell => {
-      html += `<td style="padding: 10px; border: 1px solid #ddd; word-break: break-all; white-space: pre-line;">${escapeHtml(String(cell))}</td>`;
+  res.rows.forEach((row, rIndex) => {
+    const nameVal = nameColIndex !== -1 ? String(row[nameColIndex] || '').trim() : '';
+    const isDuplicate = nameVal && nameCounts[nameVal] > 1;
+    
+    // 如果是重複的姓名，將此行/儲存格標記背景色
+    const rowBg = isDuplicate ? 'background-color: #fce8e6;' : '';
+
+    html += `<tr style="border-bottom: 1px solid #ddd; ${rowBg}">`;
+    row.forEach((cell, cIndex) => {
+      let cellStyle = 'padding: 10px; border: 1px solid #ddd; word-break: break-all; white-space: pre-line;';
+      if (cIndex === nameColIndex && isDuplicate) {
+        cellStyle += ' font-weight: bold; color: #d93025;';
+      }
+      html += `<td style="${cellStyle}">${escapeHtml(String(cell))}</td>`;
     });
+
+    // 刪除按鈕
+    html += `
+      <td class="op-col" style="padding: 10px; border: 1px solid #ddd; text-align: center; vertical-align: middle;">
+        <button class="btn-secondary" style="padding: 3px 8px; font-size: 0.85em; color: #d93025; border-color: #fce8e6; width: auto; display: inline-block;" onclick="handleDeleteResponseRow('${surveyId}', ${rIndex}, '${escapeJs(nameVal)}')">刪除</button>
+      </td>
+    `;
     html += `</tr>`;
   });
 
@@ -349,6 +390,29 @@ async function showResponsesModal(surveyId) {
 
 function closeResponsesModal() {
   document.getElementById('responsesModal').classList.add('hidden');
+}
+
+async function handleDeleteResponseRow(surveyId, rowIndex, name) {
+  const warningMsg = `【重要提醒】\n確定要刪除「${name}」的這筆填寫資料嗎？\n刪除後將直接從 Google 試算表移除，且無法恢復！`;
+  if (!confirm(warningMsg)) {
+    return;
+  }
+
+  const user = getCurrentUser();
+  const res = await callApi('deleteResponseRow', {
+    userName: user.userName,
+    deptName: user.deptName,
+    surveyId: surveyId,
+    rowIndex: rowIndex
+  });
+
+  if (res.success) {
+    alert("刪除成功！");
+    // 重新載入明細，讓列表仍保持連續
+    await showResponsesModal(surveyId);
+  } else {
+    alert(`刪除失敗：${res.message}`);
+  }
 }
 
 /**

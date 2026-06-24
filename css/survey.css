@@ -245,7 +245,7 @@
     background-color: #e8eaed !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    height: 48px !important;
+    height: 85px !important;
     vertical-align: middle !important;
     line-height: 1.3 !important;
     padding: 6px 3px !important;
@@ -285,7 +285,7 @@
   background-color: #f1f3f4;
   font-weight: bold;
   color: #202124;
-  height: 48px;
+  height: 85px;
   vertical-align: middle;
   line-height: 1.3;
   padding: 6px 4px;

@@ -340,11 +340,11 @@ async function showResponsesModal(surveyId) {
       <thead>
         <tr style="background-color: #f1f3f4; border-bottom: 2px solid #ddd;">
   `;
-  
+
   res.headers.forEach(header => {
-    const title = getShortHeader(header);
-    html += `<th style="padding: 10px; border: 1px solid #ddd; word-break: break-all; white-space: normal;" title="${escapeHtml(String(header))}">${escapeHtml(title)}</th>`;
+    html += `<th style="padding: 10px; border: 1px solid #ddd; word-break: break-all; white-space: normal;" title="${escapeHtml(String(header))}">${escapeHtml(String(header))}</th>`;
   });
+
   
   // 多加一個操作欄位
   html += `

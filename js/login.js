@@ -46,6 +46,8 @@ async function handleLogin() {
     // 將使用者名稱與部門存入 SessionStorage (當次分頁保留)
     sessionStorage.setItem('userName', res.userName);
     sessionStorage.setItem('currentDept', res.department);
+    // 儲存分項功能權限 (由帳號表 E~L 欄決定)
+    sessionStorage.setItem('permissions', JSON.stringify(res.permissions || {}));
 
     // 導向選單頁面
     window.location.href = "menu.html";

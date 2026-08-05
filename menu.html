@@ -15,77 +15,46 @@
     </div>
     <div class="header-title"><div class="sub-title">請選擇功能</div></div>
     
+    <!-- 各卡片以 data-perm 對應帳號表欄位；預設隱藏，登入後由 menu.js 依權限顯示 -->
     <div class="menu-grid">
-      <div class="menu-card" onclick="window.location.href='sign.html'">
+      <div class="menu-card" data-perm="sign" style="display: none;" onclick="window.location.href='sign.html'">
         <span class="menu-icon">📝</span>
         <div class="menu-text">數位會簽本</div>
       </div>
-      <div class="menu-card" onclick="window.location.href='duty.html'">
+      <div class="menu-card" data-perm="duty" style="display: none;" onclick="window.location.href='duty.html'">
         <span class="menu-icon">📅</span>
         <div class="menu-text">數位值日簿</div>
       </div>
-      <div class="menu-card" id="menuBtnDashboard" onclick="window.location.href='dashboard.html'">
+      <div class="menu-card" id="menuBtnDashboard" data-perm="dashboard" style="display: none;" onclick="window.location.href='dashboard.html'">
         <span class="menu-icon">📊</span>
         <div class="menu-text">檢查量儀錶板</div>
       </div>
-      <div class="menu-card" onclick="window.location.href='camera.html'">
+      <div class="menu-card" data-perm="camera" style="display: none;" onclick="window.location.href='camera.html'">
         <span class="menu-icon">📸</span>
         <div class="menu-text">GPS相機</div>
       </div>
-      
-      <!-- [行政專屬] 自動產生問卷功能 -->
-      <div class="menu-card" id="menuBtnSurvey" onclick="window.location.href='survey.html'" style="display: none;">
+
+      <!-- 自動產生問卷 (帳號表 J 欄 survey) -->
+      <div class="menu-card" id="menuBtnSurvey" data-perm="survey" style="display: none;" onclick="window.location.href='survey.html'">
         <span class="menu-icon">📋</span>
         <div class="menu-text">自動產生問卷</div>
       </div>
-      
-      <!-- [新增的區域] 設備人員檢查種類統計總表 -->
-      <!-- 預設隱藏 (display: none)，為解決手機版開啟問題改用 <a> 標籤 -->
-      <a href="https://script.google.com/macros/s/AKfycbxWR5_iJc3TIDnruVi9CVCV_PwYoDQhM0zDe-OYF4srlcyNfzstq6Ult517DeqIerUVvQ/exec" target="_blank" rel="noopener noreferrer" class="menu-card" id="menuBtnEquipStats" style="display: none;">
+
+      <!-- 設備人員檢查種類統計總表 (帳號表 L 欄 equipStats)；用 <a> 標籤解決手機版開啟問題 -->
+      <a href="https://script.google.com/macros/s/AKfycbxWR5_iJc3TIDnruVi9CVCV_PwYoDQhM0zDe-OYF4srlcyNfzstq6Ult517DeqIerUVvQ/exec" target="_blank" rel="noopener noreferrer" class="menu-card" id="menuBtnEquipStats" data-perm="equipStats" style="display: none;">
         <span class="menu-icon">🧰</span>
         <div class="menu-text">設備人員檢查<br>種類統計總表</div>
       </a>
+
+      <!-- 讓渡派件 (帳號表 F 欄 transfer) -->
+      <div class="menu-card" data-perm="transfer" style="display: none;" onclick="window.location.href='transfer.html'">
+        <span class="menu-icon">⚡</span>
+        <div class="menu-text">讓渡派件</div>
+      </div>
     </div>
   </div>
-  
+
   <script src="js/api.js"></script>
   <script src="js/menu.js"></script>
-
-  <!-- 新增：畫面渲染後動態權限控制腳本 -->
-  <script>
-    // 由於您的 js/menu.js 會非同步(API)載入資料，我們直接監聽畫面上的「部門」文字
-    // 這樣 100% 不會因為 LocalStorage 的 Key 不對而導致判斷失敗
-    const checkPermission = setInterval(() => {
-        const deptEl = document.getElementById('menuDept');
-        
-        // 等待 menu.js 將部門文字填入 (只要不是空白就開始判斷)
-        if (deptEl && deptEl.innerText.trim() !== "") {
-            const actualDept = deptEl.innerText.trim();
-            const btnEquipStats = document.getElementById('menuBtnEquipStats');
-            
-            if (btnEquipStats) {
-                // 如果畫面上確實顯示了包含「設備」兩個字，就將按鈕顯示出來
-                if (actualDept.includes("設備")) {
-                    btnEquipStats.style.display = ""; 
-                } else {
-                    // 否則強制隱藏 (例如：機械、行政)
-                    btnEquipStats.style.display = "none";
-                }
-            }
-
-            const btnSurvey = document.getElementById('menuBtnSurvey');
-            if (btnSurvey) {
-                if (actualDept.includes("行政")) {
-                    btnSurvey.style.display = "";
-                } else {
-                    btnSurvey.style.display = "none";
-                }
-            }
-            
-            // 判斷完畢後，停止這個定時檢查器以節省效能
-            clearInterval(checkPermission);
-        }
-    }, 200); // 每 0.2 秒檢查一次，直到文字出現為止
-  </script>
 </body>
 </html>

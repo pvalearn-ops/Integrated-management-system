@@ -17,8 +17,15 @@ async function callApi(action, payload = {}) {
 
 // 取得當前使用者的 Session 資訊 (各頁面共用)
 function getCurrentUser() {
+  let permissions = {};
+  try {
+    permissions = JSON.parse(sessionStorage.getItem('permissions')) || {};
+  } catch (e) {
+    permissions = {};
+  }
   return {
     userName: sessionStorage.getItem('userName'),
-    deptName: sessionStorage.getItem('currentDept')
+    deptName: sessionStorage.getItem('currentDept'),
+    permissions: permissions
   };
 }

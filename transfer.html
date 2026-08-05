@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>讓渡派件 - 綜合管理系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* 讓渡派件頁專用樣式 (由原擴充功能 popup 移植) */
+    .dispatch-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+    .dispatch-tabs { display: flex; border-bottom: 1px solid #dadce0; margin-bottom: 15px; }
+    .dispatch-tab { padding: 12px 20px; cursor: pointer; font-weight: 500; color: #5f6368; border-bottom: 3px solid transparent; }
+    .dispatch-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+
+    .dispatch-view { display: none; }
+    .dispatch-view.active { display: block; animation: dispatchFade 0.3s; }
+    @keyframes dispatchFade { from { opacity: 0; } to { opacity: 1; } }
+
+    .table-scroll { overflow-x: auto; }
+    #statsTable, #suggestTable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; background: white; border: 1px solid #dadce0; border-radius: 8px; }
+    #statsTable th, #suggestTable th { background-color: #f1f3f4; color: #5f6368; font-weight: 600; padding: 10px; text-align: center; position: sticky; top: 0; border-bottom: 1px solid #dadce0; z-index: 2; }
+    #statsTable td, #suggestTable td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: center; vertical-align: middle; }
+
+    select.insp-select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 100%; min-width: 90px; color: #333; background: #fff; }
+    select.insp-select:focus { border-color: #1a73e8; outline: none; }
+
+    .sub-text { font-size: 12px; color: #70757a; text-align: left; }
+    .load-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; background: #e6f4ea; color: #137333; }
+    .weight-tag { font-weight: bold; color: #1a73e8; }
+
+    .dispatch-footer { margin-top: 15px; padding-top: 15px; border-top: 1px solid #dadce0; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    #dispatchStatus { font-size: 13px; color: #666; }
+    #writeBtn { padding: 8px 24px; background: #1a73e8; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    #writeBtn:hover { background: #1765cc; }
+    #writeBtn:disabled { background: #ccc; cursor: default; }
+    .error-msg { color: #d93025; background: #fce8e6; border: 1px solid #f1998e; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="user-info-bar">
+      <span><span class="dept-badge" id="menuDept"></span> <span id="menuUser" style="font-weight:bold;"></span> 您好</span>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-outline" onclick="window.location.href='menu.html'">返回選單</button>
+        <button class="btn-outline" onclick="logout()">登出</button>
+      </div>
+    </div>
+
+    <div class="header-title"><div class="sub-title">⚡ 讓渡派件小幫手</div></div>
+
+    <div class="dispatch-toolbar">
+      <a href="https://docs.google.com/spreadsheets/d/1OAE7MIZElDTcgk6OnmLeTjq8_Su4xf_DpVkeNi4QWNs/edit?gid=850872363#gid=850872363"
+         target="_blank" rel="noopener noreferrer" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+        📄 開啟讓渡名冊 Google Sheet
+      </a>
+      <button class="btn-secondary" onclick="runProcess()">🔄 重新整理</button>
+    </div>
+
+    <div id="error" class="error-msg"></div>
+
+    <div class="dispatch-tabs">
+      <div class="dispatch-tab active" data-target="view-stats">📊 人員統計</div>
+      <div class="dispatch-tab" data-target="view-suggest">⚡ 派件建議</div>
+    </div>
+
+    <div id="view-stats" class="dispatch-view active">
+      <div class="table-scroll">
+        <table id="statsTable"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div id="view-suggest" class="dispatch-view">
+      <div class="table-scroll">
+        <table id="suggestTable">
+          <thead>
+            <tr>
+              <th style="width:10%">行號</th>
+              <th style="width:20%">申請文號</th>
+              <th style="width:15%">讓渡態樣</th>
+              <th style="width:20%">建議人員</th>
+              <th style="width:35%">演算依據 (模擬後)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" style="padding:40px; color:#999;">資料分析中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="dispatch-footer">
+      <div id="dispatchStatus">準備就緒</div>
+      <button id="writeBtn" disabled>寫入表單</button>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/transfer.js"></script>
+</body>
+</html>

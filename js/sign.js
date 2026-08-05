@@ -47,26 +47,39 @@ async function previewFile(id, name) {
   
   const res = await callApi('getFileBase64', { fileId: id });
   
-  if(res.success) {
-    const pdfData = atob(res.data);
-    pdfjsLib.getDocument({data: pdfData}).promise.then(pdf => {
-      container.innerHTML = "";
-      for(let p=1; p<=pdf.numPages; p++) {
-        pdf.getPage(p).then(page => {
-          const viewport = page.getViewport({scale:1.5});
-          const canvas = document.createElement('canvas');
-          canvas.className = 'pdf-page-canvas';
-          canvas.width = viewport.width; canvas.height = viewport.height;
-          canvas.style.width = "100%"; canvas.style.height = "auto";
-          container.appendChild(canvas);
-          const ctx = canvas.getContext('2d');
-          page.render({canvasContext: ctx, viewport: viewport}).promise.then(() => {
-            drawWatermark(ctx, canvas.width, canvas.height);
-          });
-        });
+  if (res && res.success) {
+    try {
+      const raw = atob(res.data);
+      const uint8Array = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) {
+        uint8Array[i] = raw.charCodeAt(i);
       }
-    });
-  } else { container.innerHTML = "讀取失敗"; }
+      pdfjsLib.getDocument({ data: uint8Array }).promise.then(pdf => {
+        container.innerHTML = "";
+        for (let p = 1; p <= pdf.numPages; p++) {
+          pdf.getPage(p).then(page => {
+            const viewport = page.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            canvas.className = 'pdf-page-canvas';
+            canvas.width = viewport.width; canvas.height = viewport.height;
+            canvas.style.width = "100%"; canvas.style.height = "auto";
+            container.appendChild(canvas);
+            const ctx = canvas.getContext('2d');
+            page.render({ canvasContext: ctx, viewport: viewport }).promise.then(() => {
+              drawWatermark(ctx, canvas.width, canvas.height);
+            });
+          });
+        }
+      }).catch(err => {
+        container.innerHTML = `<div style="color:#d93025; padding:20px; text-align:center;">⚠️ PDF 渲染失敗：${err.message || err}</div>`;
+      });
+    } catch (e) {
+      container.innerHTML = `<div style="color:#d93025; padding:20px; text-align:center;">⚠️ PDF 解析失敗：${e.message}</div>`;
+    }
+  } else {
+    const errMsg = (res && res.message) ? res.message : "伺服器無回應或連線失敗";
+    container.innerHTML = `<div style="color:#d93025; padding:20px; text-align:center;">❌ 讀取失敗：${errMsg}</div>`;
+  }
 }
 
 function drawWatermark(ctx, width, height) {

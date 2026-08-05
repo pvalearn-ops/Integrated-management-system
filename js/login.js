@@ -38,7 +38,7 @@ async function handleLogin() {
   // 呼叫我們封裝好的 API 函式
   const res = await callApi('login', { account: acc, password: pwd });
 
-  if (res.success) {
+  if (res.success && res.userName && res.department) {
     // 登入成功：記憶帳密到 LocalStorage (跨關閉瀏覽器保留)
     localStorage.setItem('savedAcc', acc);
     localStorage.setItem('savedPwd', pwd);
@@ -52,7 +52,7 @@ async function handleLogin() {
     // 導向選單頁面
     window.location.href = "menu.html";
   } else {
-    msgLabel.innerText = res.message;
+    msgLabel.innerText = res.message || "登入資訊驗證不完整，請重試";
     loginBtn.disabled = false; 
     loginBtn.innerText = "登入";
   }

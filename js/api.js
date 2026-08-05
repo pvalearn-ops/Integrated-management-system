@@ -5,13 +5,17 @@ async function callApi(action, payload = {}) {
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
-      // 注意：故意不設 'Content-Type': 'application/json' 以避開 CORS 預檢機制
-      body: JSON.stringify({ action: action, ...payload })
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: action, ...payload }),
+      redirect: 'follow'
     });
+    if (!response.ok) {
+      return { success: false, message: `伺服器回應異常 (HTTP ${response.status})` };
+    }
     return await response.json();
   } catch (error) {
     console.error(`API 錯誤 (${action}):`, error);
-    return { success: false, message: "伺服器連線失敗" };
+    return { success: false, message: "伺服器連線失敗 (" + (error.message || error) + ")" };
   }
 }
 

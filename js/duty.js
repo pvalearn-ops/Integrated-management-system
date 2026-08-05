@@ -2,16 +2,18 @@ const user = getCurrentUser();
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 
-window.onload = () => {
+window.onload = async () => {
   if (!user.userName) { window.location.href = "index.html"; return; }
   
   document.getElementById('proxyDisplayInfo').innerText = `${user.userName} (${user.deptName})`;
   
-  renderCalendar();
   const todayISO = new Date().toLocaleDateString('en-CA');
   document.getElementById('proxyDate').value = todayISO;
   document.getElementById('logDate').value = todayISO;
-  loadLogData();
+
+  // 依序執行，避免平行發起雙重 POST 導致 GAS 請求互鎖阻塞
+  await renderCalendar();
+  await loadLogData();
 };
 
 function changeMonth(delta) {

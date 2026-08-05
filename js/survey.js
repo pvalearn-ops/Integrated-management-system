@@ -7,8 +7,9 @@ window.onload = async () => {
     return;
   }
   
-  if (user.deptName !== "行政") {
-    alert("本功能僅供行政同仁使用！將返回主選單。");
+  const perms = user.permissions || {};
+  if (Object.keys(perms).length > 0 && perms.survey === false) {
+    alert("權限不足：您沒有自動問卷的權限！將返回主選單。");
     window.location.href = "menu.html";
     return;
   }

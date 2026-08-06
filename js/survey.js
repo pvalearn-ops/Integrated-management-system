@@ -1,5 +1,28 @@
 // js/survey.js - 問卷管理前端邏輯
 
+// 統計圖表與回覆明細兩個燈箱用的是同一份後端資料，原本各自呼叫一次 getSurveyStats，
+// 後端就把整份回覆表重讀重算一遍。這裡讓兩邊共用同一次結果。
+const surveyStatsCache = {};
+
+async function fetchSurveyStats(surveyId) {
+  if (surveyStatsCache[surveyId]) return surveyStatsCache[surveyId];
+
+  const user = getCurrentUser();
+  const res = await callApi('getSurveyStats', {
+    userName: user.userName,
+    deptName: user.deptName,
+    surveyId: surveyId
+  });
+
+  if (res && res.success) surveyStatsCache[surveyId] = res;
+  return res;
+}
+
+// 回覆內容有異動時必須丟棄，否則會拿到舊資料
+function invalidateSurveyStats(surveyId) {
+  delete surveyStatsCache[surveyId];
+}
+
 window.onload = async () => {
   const user = getCurrentUser();
   if (!user.userName) {
@@ -119,6 +142,7 @@ async function handleDeleteSurvey(surveyId, title) {
 
   if (res.success) {
     alert("刪除問卷成功！");
+    invalidateSurveyStats(surveyId);
     await loadSurveyList();
   } else {
     alert(`刪除失敗：${res.message}`);
@@ -165,12 +189,7 @@ async function showStatsModal(surveyId) {
   content.innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">正在從 Google 試算表統計回覆資料，請稍候...</div>';
   modal.classList.remove('hidden');
 
-  const user = getCurrentUser();
-  const res = await callApi('getSurveyStats', {
-    userName: user.userName,
-    deptName: user.deptName,
-    surveyId: surveyId
-  });
+  const res = await fetchSurveyStats(surveyId);
 
   if (!res.success) {
     content.innerHTML = `<div style="text-align: center; color: #d93025; padding: 50px;">載入統計失敗：${res.message}</div>`;
@@ -298,12 +317,7 @@ async function showResponsesModal(surveyId) {
   content.innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">正在讀取回覆明細資料，請稍候...</div>';
   modal.classList.remove('hidden');
 
-  const user = getCurrentUser();
-  const res = await callApi('getSurveyStats', {
-    userName: user.userName,
-    deptName: user.deptName,
-    surveyId: surveyId
-  });
+  const res = await fetchSurveyStats(surveyId);
 
   if (!res.success) {
     content.innerHTML = `<div style="text-align: center; color: #d93025; padding: 50px;">載入明細失敗：${res.message}</div>`;
@@ -409,6 +423,8 @@ async function handleDeleteResponseRow(surveyId, rowIndex, name) {
 
   if (res.success) {
     alert("刪除成功！");
+    // 這份問卷的回覆已經變了，必須丟掉快取再重讀
+    invalidateSurveyStats(surveyId);
     // 重新載入明細，讓列表仍保持連續
     await showResponsesModal(surveyId);
   } else {

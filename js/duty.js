@@ -23,28 +23,48 @@ function changeMonth(delta) {
   renderCalendar();
 }
 
+// 當月資料留在前端，代理人/日誌存檔後可以直接重畫，不必再跟後端要一次
+let currentMonthData = {};
+
 async function renderCalendar() {
+  // 先把標題換掉，讓切換月份當下就有回饋 (資料還在路上)；paintCalendar 之後會再設定一次
   document.getElementById('calTitle').innerText = `${currentYear}年 ${currentMonth}月`;
-  const grid = document.getElementById('calendarGrid');
-  grid.innerHTML = '<div class="cal-header">日</div><div class="cal-header">一</div><div class="cal-header">二</div><div class="cal-header">三</div><div class="cal-header">四</div><div class="cal-header">五</div><div class="cal-header">六</div>';
 
   const data = await callApi('getDutyCalendarData', { year: currentYear, month: currentMonth });
   if (!data) return;
 
-  const dataMap = {};
-  data.forEach(d => dataMap[d.date] = d);
+  // 後端出錯時回傳的是 { success:false, message }，不是陣列。
+  // 沒有這道檢查會靜靜畫出一個空月曆，看起來像「這個月沒有排班」。
+  if (!Array.isArray(data)) {
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = `<div style="grid-column:1/-1; color:#d93025; padding:20px; text-align:center;">值班表讀取失敗：${data.message || '未知錯誤'}</div>`;
+    return;
+  }
+
+  currentMonthData = {};
+  data.forEach(d => currentMonthData[d.date] = d);
+  paintCalendar();
+}
+
+function paintCalendar() {
+  document.getElementById('calTitle').innerText = `${currentYear}年 ${currentMonth}月`;
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '<div class="cal-header">日</div><div class="cal-header">一</div><div class="cal-header">二</div><div class="cal-header">三</div><div class="cal-header">四</div><div class="cal-header">五</div><div class="cal-header">六</div>';
+
   const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const today = new Date(); today.setHours(0,0,0,0);
 
-  for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>';
+  // 先組進 fragment 再一次掛上；原本在迴圈裡用 innerHTML += 會每加一格就重新解析整個月曆
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < firstDay; i++) frag.appendChild(document.createElement('div'));
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${currentYear}/${currentMonth}/${d}`;
-    const info = dataMap[dateStr];
+    const info = currentMonthData[dateStr];
     const div = document.createElement('div');
     div.className = 'cal-cell';
-    
+
     const checkDate = new Date(currentYear, currentMonth-1, d);
     if (checkDate.toDateString() === new Date().toDateString()) div.classList.add('is-today');
 
@@ -106,8 +126,10 @@ async function renderCalendar() {
       document.getElementById('logDate').value = isoDate;
       loadLogData();
     };
-    grid.appendChild(div);
+    frag.appendChild(div);
   }
+
+  grid.appendChild(frag);
 }
 
 async function submitProxy() {
@@ -116,8 +138,27 @@ async function submitProxy() {
   if (!confirm(`確定設定自己為 ${date} 的代理人?`)) return;
   
   const res = await callApi('setDutyProxy', { dateStr: date, dept: user.deptName, proxyName: user.userName });
-  if(res.success) { alert("設定成功"); renderCalendar(); } 
-  else { alert(res.message); }
+  if (res.success) {
+    alert("設定成功");
+    // 本地更新後重畫即可，不必再打一次 API 把整個月拉回來
+    if (updateLocalDuty(date, d => {
+      if (user.deptName === '機械') d.mech.proxy = user.userName;
+      else if (user.deptName === '設備') d.equip.proxy = user.userName;
+      else if (user.deptName === '行政') d.admin.proxy = user.userName;
+    })) {
+      paintCalendar();
+    } else {
+      renderCalendar();   // 設定的日期不在目前顯示的月份，才需要重新取得
+    }
+  } else { alert(res.message); }
+}
+
+// 就地修改當月快取中的某一天。回傳 false 代表那天不在目前顯示的月份。
+function updateLocalDuty(dateStr, mutate) {
+  const info = currentMonthData[dateStr];
+  if (!info) return false;
+  mutate(info);
+  return true;
 }
 
 function changeLogDate(delta) {
@@ -176,8 +217,19 @@ async function saveLog() {
   document.getElementById('btnSaveLog').innerText = "儲存日誌";
   document.getElementById('btnSaveLog').disabled = false;
   
-  if(res.success) {
+  if (res.success) {
     alert("儲存成功！");
-    renderCalendar();
+
+    // 有填內容 → 必定不再是「缺」，本地改一下重畫就好，省掉一趟往返。
+    // 清空內容 → 是否算「缺」還要看日期是否已過、當天是否為假日，
+    //            這些規則在後端 (getDutyCalendarData)，前端不重算以免判斷不一致。
+    const hasContent = String(t1 || "").trim() !== "" || String(t2 || "").trim() !== "";
+    const painted = hasContent && updateLocalDuty(dateStr, d => {
+      if (user.deptName === '機械') d.mech.missing = false;
+      else if (user.deptName === '設備') d.equip.missing = false;
+    });
+
+    if (painted) paintCalendar();
+    else renderCalendar();
   } else { alert(res.message); }
 }

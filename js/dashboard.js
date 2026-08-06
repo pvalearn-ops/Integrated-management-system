@@ -1,5 +1,8 @@
 const user = getCurrentUser();
 
+// 後端欄位缺漏時，樣板字串會把 undefined / null 直接印成文字。這裡統一擋掉。
+const cell = v => (v === null || v === undefined) ? '' : v;
+
 window.onload = () => {
   if (!user.userName) { window.location.href = "index.html"; return; }
   initDashboard();
@@ -91,12 +94,12 @@ function renderDashboardUI(data) {
     // 個人清單
     html += `<div class="dash-section-title" style="border-color:#f2cc60">個人讓渡案件</div>
     <div style="overflow-x:auto;"><table class="list-table">
-      <thead><tr><th>日期</th><th>文號</th><th>原因</th><th>讓渡態樣</th></tr></thead>
+      <thead><tr><th>日期</th><th>構造號碼</th><th>原因</th><th>讓渡態樣</th></tr></thead>
       <tbody>`;
       if(data.personalList.length === 0) html += `<tr><td colspan="4" style="text-align:center; padding:20px; color:#666;">無資料</td></tr>`;
       else {
         data.personalList.forEach(c => {
-          html += `<tr><td class="list-date">${c.date}</td><td>${c.docNo}</td><td>${c.reason}</td><td>${c.type}</td></tr>`;
+          html += `<tr><td class="list-date">${cell(c.date)}</td><td>${cell(c.structNo)}</td><td>${cell(c.reason)}</td><td>${cell(c.type)}</td></tr>`;
         });
       }
     html += `</tbody></table></div>`;

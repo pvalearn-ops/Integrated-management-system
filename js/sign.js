@@ -2,26 +2,30 @@ let targetFileId = "", targetFileName = "";
 let pdfRenderObserver = null;
 const user = getCurrentUser();
 
+// ★ Drive API 金鑰。填入後，PDF 改由瀏覽器直接向 Google 取檔，
+//   不再繞道 GAS —— 速度快上一個量級，且沒有大小限制，浮水印照常繪製。
+//   留空則沿用原本的 GAS 路徑 (大檔會失敗)。
+//   前置作業：三個會簽資料夾設為「知道連結者可檢視」+ 建立受限的 API 金鑰。
+const DRIVE_API_KEY = "";
+
+// ★ 最後退路：連 GAS 也失敗時，是否改用 Drive 內嵌檢視器把文件顯示出來。
+//   這個路徑沒有浮水印，設為 false 則只顯示錯誤訊息。
+const ALLOW_DRIVE_FALLBACK = true;
+
+// 會簽清單的本地快取 key (依部門+姓名區分)
+function signCacheKey() {
+  return 'signList_' + user.deptName + '_' + user.userName;
+}
+
 window.onload = () => {
   if (!user.userName) { window.location.href = "index.html"; return; }
   loadFiles();
 };
 
-async function loadFiles() {
+function renderFiles(files) {
   const listDiv = document.getElementById('fileList');
-  listDiv.innerHTML = "載入中...";
-
-  const files = await callApi('getFileList', { userName: user.userName, deptName: user.deptName });
-
   listDiv.innerHTML = "";
 
-  // 【防呆機制】如果後端回傳錯誤訊息 (success為false)，就把錯誤印出來
-  if (files && files.success === false) {
-    listDiv.innerHTML = `<p style="color:red; text-align:center;">讀取失敗：${files.message}</p>`;
-    return;
-  }
-
-  // 確保 files 是陣列且有資料
   if (!Array.isArray(files) || files.length === 0) {
     listDiv.innerHTML = "<p style='text-align:center;'>無檔案</p>";
     return;
@@ -53,6 +57,50 @@ async function loadFiles() {
   });
 }
 
+async function loadFiles() {
+  const listDiv = document.getElementById('fileList');
+
+  // 先用上次的清單即時渲染 (開頁面零等待)，新資料到了再無感更新
+  let hadCache = false;
+  try {
+    const cached = JSON.parse(localStorage.getItem(signCacheKey()) || 'null');
+    if (Array.isArray(cached) && cached.length > 0) {
+      renderFiles(cached);
+      hadCache = true;
+    }
+  } catch (e) {}
+  if (!hadCache) listDiv.innerHTML = "載入中...";
+
+  const files = await callApi('getFileList', { userName: user.userName, deptName: user.deptName });
+
+  // 後端回傳錯誤：有快取畫面就維持舊清單不動，沒有才顯示錯誤
+  if (files && files.success === false) {
+    if (!hadCache) {
+      listDiv.innerHTML = `<p style="color:red; text-align:center;">讀取失敗：${files.message}</p>`;
+    }
+    return;
+  }
+  if (!Array.isArray(files)) {
+    if (!hadCache) listDiv.innerHTML = "<p style='text-align:center;'>無檔案</p>";
+    return;
+  }
+
+  try {
+    localStorage.setItem(signCacheKey(), JSON.stringify(files));
+  } catch (e) {}
+  renderFiles(files);
+}
+
+// 更新本地快取中某檔案的簽核狀態 (樂觀更新用)
+function updateCachedSign(fileId, isSigned) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(signCacheKey()) || 'null');
+    if (!Array.isArray(cached)) return;
+    cached.forEach(f => { if (f.id === fileId) f.isSigned = isSigned; });
+    localStorage.setItem(signCacheKey(), JSON.stringify(cached));
+  } catch (e) {}
+}
+
 function markButtonSigned(btn) {
   btn.className = 'btn-read done';
   btn.textContent = '✔ 已簽核';
@@ -63,6 +111,7 @@ async function previewFile(id, name) {
   document.getElementById('previewSection').classList.remove('hidden');
   document.getElementById('previewNameTarget').innerText = name;
   const container = document.getElementById('pdfContainer');
+
   container.innerHTML = "<div class='loading-spinner'>📥 下載文件中...</div>";
 
   // 切換檔案時停掉上一份的延遲渲染，避免 observer 累積
@@ -71,27 +120,67 @@ async function previewFile(id, name) {
     pdfRenderObserver = null;
   }
 
+  // 路徑 1：瀏覽器直接向 Drive API 取原始位元組。
+  // 不經過 GAS，沒有 base64 膨脹、沒有回應大小限制，浮水印照常繪製。
+  if (DRIVE_API_KEY) {
+    try {
+      const bytes = await fetchPdfFromDrive(id);
+      await renderPdfBytes(bytes, container);
+      return;
+    } catch (e) {
+      console.warn('[預覽] Drive API 取檔失敗，改走 GAS：', e);
+    }
+  }
+
+  // 路徑 2：經 GAS 取 base64 (原本的作法，大檔可能失敗)
   const res = await callApi('getFileBase64', { fileId: id });
 
   if (!res || !res.success) {
     const errMsg = (res && res.message) ? res.message : "伺服器無回應或連線失敗";
-    let html = `<div style="color:#fff; padding:20px; text-align:center;">❌ 讀取失敗：${errMsg}`;
-    // 檔案過大時後端會附上 Drive 連結
-    if (res && res.webViewLink) {
-      html += `<div style="margin-top:12px;"><a href="${res.webViewLink}" target="_blank" rel="noopener noreferrer" style="color:#8ab4f8;">🔗 在 Google Drive 開啟</a></div>`;
-    }
-    container.innerHTML = html + `</div>`;
+    showDriveFallback(container, id, errMsg);
     return;
   }
 
   try {
-    container.innerHTML = "<div class='loading-spinner'>📄 解析文件中...</div>";
-
-    const pdf = await pdfjsLib.getDocument({ data: base64ToBytes(res.data) }).promise;
-    await renderPdfLazily(pdf, container);
+    await renderPdfBytes(base64ToBytes(res.data), container);
   } catch (e) {
-    container.innerHTML = `<div style="color:#ff8a80; padding:20px; text-align:center;">⚠️ PDF 解析失敗：${e.message || e}</div>`;
+    showDriveFallback(container, id, 'PDF 解析失敗：' + (e.message || e));
   }
+}
+
+// 向 Drive REST API 取原始檔案位元組。
+// googleapis.com 會回傳 CORS 標頭，所以瀏覽器可以直接抓；
+// 檔案必須是「知道連結者可檢視」，金鑰才有權限讀取。
+async function fetchPdfFromDrive(fileId) {
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`;
+  const resp = await fetch(url, { cache: 'no-store' });
+  if (!resp.ok) throw new Error(`Drive API HTTP ${resp.status}`);
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
+async function renderPdfBytes(bytes, container) {
+  container.innerHTML = "<div class='loading-spinner'>📄 解析文件中...</div>";
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  await renderPdfLazily(pdf, container);
+}
+
+// GAS 傳輸失敗時的退路。
+// 大檔 PDF 經 base64 後有十幾 MB，透過 GAS 的 302 轉址回傳常會失敗 (HTTP 404) ——
+// 這是 GAS 的傳輸極限，不是程式錯誤。此時改用 Drive 內建檢視器，
+// 至少讓文件看得到；代價是這個路徑沒有浮水印。
+function showDriveFallback(container, fileId, errMsg) {
+  if (!ALLOW_DRIVE_FALLBACK) {
+    container.innerHTML = `<div style="color:#ff8a80; padding:20px; text-align:center;">❌ 讀取失敗：${errMsg}</div>`;
+    return;
+  }
+  container.innerHTML = `
+    <div style="color:#fff; padding:12px 16px; background:rgba(0,0,0,0.4); font-size:0.92em;">
+      ⚠️ 浮水印版本載入失敗（${errMsg}），已改用 Google Drive 檢視器
+      <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank" rel="noopener noreferrer"
+         style="color:#8ab4f8; margin-left:10px;">🔗 在新分頁開啟</a>
+    </div>
+    <iframe src="https://drive.google.com/file/d/${fileId}/preview"
+            style="width:100%; height:520px; border:0; background:#fff;" allow="autoplay"></iframe>`;
 }
 
 // base64 → Uint8Array。
@@ -197,16 +286,23 @@ async function executeSign() {
   closeModal();
 
   const btn = document.querySelector(`[data-sign-id="${targetFileId}"]`);
-  if (btn) { btn.disabled = true; btn.textContent = "簽核中..."; }
+  const fileId = targetFileId, fileName = targetFileName;
 
-  const res = await callApi('markAsRead', { userName: user.userName, fileName: targetFileName, deptName: user.deptName });
+  // 樂觀更新：按下去立刻顯示已簽核，寫入在背景進行；失敗才還原並提示重按。
+  // 小系統以操作回饋速度為優先，值得用這個取捨。
+  if (btn) markButtonSigned(btn);
+  updateCachedSign(fileId, true);
 
-  if (res && res.success) {
-    // 只更新這一筆的狀態，不再整包重抓 (舊版簽核一次要付兩趟 GAS 往返)
-    if (btn) markButtonSigned(btn);
-  } else {
+  const res = await callApi('markAsRead', { userName: user.userName, fileName: fileName, deptName: user.deptName });
+
+  if (!res || !res.success) {
+    updateCachedSign(fileId, false);
+    if (btn) {
+      btn.disabled = false;
+      btn.className = 'btn-read';
+      btn.textContent = '確認已讀';
+    }
     const msg = (res && res.message) ? res.message : "伺服器無回應";
-    alert("簽核失敗：" + msg);
-    if (btn) { btn.disabled = false; btn.textContent = "確認已讀"; }
+    alert(`「${fileName}」簽核失敗：${msg}\n請再按一次「確認已讀」。`);
   }
 }

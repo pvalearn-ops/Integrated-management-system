@@ -2,6 +2,15 @@
 
 // 頁面載入時，檢查是否有記憶帳密
 window.onload = () => {
+  // 已有登入紀錄 → 直接進選單，完全不等 API (選單頁會在背景重新驗證權限)
+  try {
+    const saved = JSON.parse(localStorage.getItem('savedSession') || 'null');
+    if (saved && saved.userName) {
+      window.location.href = "menu.html";
+      return;
+    }
+  } catch (e) {}
+
   const savedAcc = localStorage.getItem('savedAcc');
   const savedPwd = localStorage.getItem('savedPwd');
   const accInput = document.getElementById('acc');
@@ -42,12 +51,9 @@ async function handleLogin() {
     // 登入成功：記憶帳密到 LocalStorage (跨關閉瀏覽器保留)
     localStorage.setItem('savedAcc', acc);
     localStorage.setItem('savedPwd', pwd);
-    
-    // 將使用者名稱與部門存入 SessionStorage (當次分頁保留)
-    sessionStorage.setItem('userName', res.userName);
-    sessionStorage.setItem('currentDept', res.department);
-    // 儲存分項功能權限 (由帳號表 E~L 欄決定)
-    sessionStorage.setItem('permissions', JSON.stringify(res.permissions || {}));
+
+    // 寫入 session + localStorage 登入紀錄 (下次開網頁直接跳過登入頁)
+    saveSession(res);
 
     // 導向選單頁面
     window.location.href = "menu.html";

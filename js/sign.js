@@ -6,7 +6,7 @@ const user = getCurrentUser();
 //   不再繞道 GAS —— 速度快上一個量級，且沒有大小限制，浮水印照常繪製。
 //   留空則沿用原本的 GAS 路徑 (大檔會失敗)。
 //   前置作業：三個會簽資料夾設為「知道連結者可檢視」+ 建立受限的 API 金鑰。
-const DRIVE_API_KEY = "";
+const DRIVE_API_KEY = "AIzaSyDF35QvitrwstxIzACmNwq0SOavdE2QgHk";
 
 // ★ 最後退路：連 GAS 也失敗時，是否改用 Drive 內嵌檢視器把文件顯示出來。
 //   這個路徑沒有浮水印，設為 false 則只顯示錯誤訊息。
@@ -153,7 +153,9 @@ async function previewFile(id, name) {
 // 檔案必須是「知道連結者可檢視」，金鑰才有權限讀取。
 async function fetchPdfFromDrive(fileId) {
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`;
-  const resp = await fetch(url, { cache: 'no-store' });
+  // 瀏覽器預設跨站只送網域 (https://pvalearn-ops.github.io/)，對不上金鑰限制的
+  // 「.../Integrated-management-system/*」而被 403；改為送出完整網址。
+  const resp = await fetch(url, { cache: 'no-store', referrerPolicy: 'no-referrer-when-downgrade' });
   if (!resp.ok) throw new Error(`Drive API HTTP ${resp.status}`);
   return new Uint8Array(await resp.arrayBuffer());
 }

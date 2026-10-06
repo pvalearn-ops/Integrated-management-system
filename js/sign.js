@@ -1,5 +1,8 @@
 let targetFileId = "", targetFileName = "";
 let pdfRenderObserver = null;
+// 每次開預覽 +1。較早開始、較晚完成的預覽發現自己已過期就放棄，
+// 避免快速連點兩份文件時，前一份載完把後一份的畫面蓋掉。
+let previewSeq = 0;
 const user = getCurrentUser();
 
 // ★ Drive API 金鑰。填入後，PDF 改由瀏覽器直接向 Google 取檔，
@@ -8,9 +11,14 @@ const user = getCurrentUser();
 //   前置作業：三個會簽資料夾設為「知道連結者可檢視」+ 建立受限的 API 金鑰。
 const DRIVE_API_KEY = "AIzaSyDF35QvitrwstxIzACmNwq0SOavdE2QgHk";
 
-// ★ 最後退路：連 GAS 也失敗時，是否改用 Drive 內嵌檢視器把文件顯示出來。
-//   這個路徑沒有浮水印，設為 false 則只顯示錯誤訊息。
-const ALLOW_DRIVE_FALLBACK = true;
+// 文件一律以「pdf.js 繪製 + 浮水印」顯示。浮水印畫不上去的頁面直接不顯示，
+// 也不提供 Drive 原檔連結或內嵌檢視器 —— 那些路徑拿得到沒有浮水印的原始檔。
+
+// pdf.js 的備援來源：主來源 (sign.html 載入的 cdnjs) 載不到時改從 jsdelivr 載入
+const PDFJS_FALLBACK = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/';
+
+// 本頁已下載過的 PDF 位元組 (fileId → Uint8Array)，重複點同一份不必再下載
+const pdfBytesCache = new Map();
 
 // 會簽清單的本地快取 key (依部門+姓名區分)
 function signCacheKey() {
@@ -111,6 +119,8 @@ async function previewFile(id, name) {
   document.getElementById('previewSection').classList.remove('hidden');
   document.getElementById('previewNameTarget').innerText = name;
   const container = document.getElementById('pdfContainer');
+  const seq = ++previewSeq;
+  const isStale = () => seq !== previewSeq;
 
   container.innerHTML = "<div class='loading-spinner'>📥 下載文件中...</div>";
 
@@ -120,32 +130,68 @@ async function previewFile(id, name) {
     pdfRenderObserver = null;
   }
 
-  // 路徑 1：瀏覽器直接向 Drive API 取原始位元組。
-  // 不經過 GAS，沒有 base64 膨脹、沒有回應大小限制，浮水印照常繪製。
-  if (DRIVE_API_KEY) {
-    try {
-      const bytes = await fetchPdfFromDrive(id);
-      await renderPdfBytes(bytes, container);
-      return;
-    } catch (e) {
-      console.warn('[預覽] Drive API 取檔失敗，改走 GAS：', e);
-    }
-  }
-
-  // 路徑 2：經 GAS 取 base64 (原本的作法，大檔可能失敗)
-  const res = await callApi('getFileBase64', { fileId: id });
-
-  if (!res || !res.success) {
-    const errMsg = (res && res.message) ? res.message : "伺服器無回應或連線失敗";
-    showDriveFallback(container, id, errMsg);
+  // 沒有姓名就畫不出浮水印 → 不顯示
+  if (!user.userName) {
+    showPreviewError(container, id, name, '無法取得使用者姓名，浮水印無法產生');
     return;
   }
 
   try {
-    await renderPdfBytes(base64ToBytes(res.data), container);
+    await ensurePdfJs();
   } catch (e) {
-    showDriveFallback(container, id, 'PDF 解析失敗：' + (e.message || e));
+    if (!isStale()) showPreviewError(container, id, name, '預覽元件載入失敗，請檢查網路後重試');
+    return;
   }
+
+  let bytes;
+  try {
+    bytes = await getPdfBytes(id);
+  } catch (e) {
+    if (!isStale()) showPreviewError(container, id, name, e.message || String(e));
+    return;
+  }
+  if (isStale()) return;
+
+  try {
+    container.innerHTML = "<div class='loading-spinner'>📄 解析文件中...</div>";
+    // pdf.js 會把傳入的 buffer 轉移給 worker，給它一份複本，快取的才不會被清空
+    const pdf = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+    if (isStale()) return;
+    await renderPdfLazily(pdf, container, isStale);
+  } catch (e) {
+    pdfBytesCache.delete(id);
+    if (!isStale()) showPreviewError(container, id, name, '文件顯示失敗：' + (e.message || e));
+  }
+}
+
+// 依序嘗試：記憶體快取 → Drive API (重試一次) → GAS。全部失敗才丟出錯誤。
+async function getPdfBytes(id) {
+  if (pdfBytesCache.has(id)) return pdfBytesCache.get(id);
+
+  let lastErr = '';
+  // 路徑 1：瀏覽器直接向 Drive API 取原始位元組 (快、沒有大小限制)
+  if (DRIVE_API_KEY) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const bytes = await fetchPdfFromDrive(id);
+        pdfBytesCache.set(id, bytes);
+        return bytes;
+      } catch (e) {
+        lastErr = e.message || String(e);
+        console.warn(`[預覽] Drive API 第 ${attempt} 次失敗：`, e);
+        if (attempt === 1) await delay(500);
+      }
+    }
+  }
+
+  // 路徑 2：經 GAS 取 base64 (大檔可能失敗)
+  const res = await callApi('getFileBase64', { fileId: id });
+  if (res && res.success && res.data) {
+    const bytes = base64ToBytes(res.data);
+    pdfBytesCache.set(id, bytes);
+    return bytes;
+  }
+  throw new Error((res && res.message) || lastErr || '伺服器無回應或連線失敗');
 }
 
 // 向 Drive REST API 取原始檔案位元組。
@@ -153,36 +199,55 @@ async function previewFile(id, name) {
 // 檔案必須是「知道連結者可檢視」，金鑰才有權限讀取。
 async function fetchPdfFromDrive(fileId) {
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`;
-  // 瀏覽器預設跨站只送網域 (https://pvalearn-ops.github.io/)，對不上金鑰限制的
-  // 「.../Integrated-management-system/*」而被 403；改為送出完整網址。
-  const resp = await fetch(url, { cache: 'no-store', referrerPolicy: 'no-referrer-when-downgrade' });
-  if (!resp.ok) throw new Error(`Drive API HTTP ${resp.status}`);
-  return new Uint8Array(await resp.arrayBuffer());
-}
-
-async function renderPdfBytes(bytes, container) {
-  container.innerHTML = "<div class='loading-spinner'>📄 解析文件中...</div>";
-  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-  await renderPdfLazily(pdf, container);
-}
-
-// GAS 傳輸失敗時的退路。
-// 大檔 PDF 經 base64 後有十幾 MB，透過 GAS 的 302 轉址回傳常會失敗 (HTTP 404) ——
-// 這是 GAS 的傳輸極限，不是程式錯誤。此時改用 Drive 內建檢視器，
-// 至少讓文件看得到；代價是這個路徑沒有浮水印。
-function showDriveFallback(container, fileId, errMsg) {
-  if (!ALLOW_DRIVE_FALLBACK) {
-    container.innerHTML = `<div style="color:#ff8a80; padding:20px; text-align:center;">❌ 讀取失敗：${errMsg}</div>`;
-    return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  try {
+    // 瀏覽器預設跨站只送網域 (https://pvalearn-ops.github.io/)，對不上金鑰限制的
+    // 「.../Integrated-management-system/*」而被 403；改為送出完整網址。
+    const resp = await fetch(url, {
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer-when-downgrade',
+      signal: controller.signal
+    });
+    if (!resp.ok) throw new Error(`Drive API HTTP ${resp.status}`);
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+    // 確認真的是 PDF (開頭為 %PDF)，避免把錯誤頁面當文件解析
+    if (bytes.length < 5 || String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== '%PDF') {
+      throw new Error('Drive API 回傳的不是 PDF');
+    }
+    return bytes;
+  } finally {
+    clearTimeout(timer);
   }
-  container.innerHTML = `
-    <div style="color:#fff; padding:12px 16px; background:rgba(0,0,0,0.4); font-size:0.92em;">
-      ⚠️ 浮水印版本載入失敗（${errMsg}），已改用 Google Drive 檢視器
-      <a href="https://drive.google.com/file/d/${fileId}/view" target="_blank" rel="noopener noreferrer"
-         style="color:#8ab4f8; margin-left:10px;">🔗 在新分頁開啟</a>
-    </div>
-    <iframe src="https://drive.google.com/file/d/${fileId}/preview"
-            style="width:100%; height:520px; border:0; background:#fff;" allow="autoplay"></iframe>`;
+}
+
+// 確保 pdf.js 可用：主來源沒載到時，改從備援 CDN 動態載入
+async function ensurePdfJs() {
+  if (window.pdfjsLib) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = PDFJS_FALLBACK + 'pdf.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('pdf.js 載入失敗'));
+    document.head.appendChild(s);
+  });
+  if (!window.pdfjsLib) throw new Error('pdf.js 載入失敗');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_FALLBACK + 'pdf.worker.min.js';
+}
+
+// 預覽失敗：只顯示錯誤與「重試」，刻意不給 Drive 連結 (那會拿到沒有浮水印的原檔)
+function showPreviewError(container, fileId, fileName, errMsg) {
+  container.innerHTML = "";
+  const box = document.createElement('div');
+  box.style.cssText = "color:#ff8a80; padding:20px; text-align:center;";
+  box.textContent = `❌ 文件無法顯示：${errMsg}`;
+  const retry = document.createElement('button');
+  retry.className = 'btn-secondary';
+  retry.style.cssText = "display:block; margin:12px auto 0;";
+  retry.textContent = '🔄 重試';
+  retry.addEventListener('click', () => previewFile(fileId, fileName));
+  box.appendChild(retry);
+  container.appendChild(box);
 }
 
 // base64 → Uint8Array。
@@ -199,9 +264,10 @@ function base64ToBytes(b64) {
 
 // 先依第 1 頁尺寸替所有頁面建立佔位框，只渲染進入畫面的頁。
 // 舊版一次把每一頁都 render 出來，長文件會同時開出數十張大 canvas 並各畫 150 次浮水印。
-async function renderPdfLazily(pdf, container) {
+async function renderPdfLazily(pdf, container, isStale) {
   const SCALE = 1.5;
   const baseViewport = (await pdf.getPage(1)).getViewport({ scale: SCALE });
+  if (isStale()) return;
 
   container.innerHTML = "";
 
@@ -232,9 +298,19 @@ async function renderPdfLazily(pdf, container) {
     canvas.style.height = "auto";
     canvas.style.margin = "0";   // 外距交給 slot，避免與 .pdf-page-canvas 的 margin 疊加
 
-    const ctx = canvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-    drawWatermark(ctx, canvas.width, canvas.height);
+    try {
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      // 浮水印畫不上去就丟掉這張 canvas，絕不顯示沒有浮水印的頁面
+      drawWatermark(ctx, canvas.width, canvas.height);
+    } catch (e) {
+      console.error(`[預覽] 第 ${slot.dataset.pageNum} 頁顯示失敗：`, e);
+      canvas.width = 0;
+      slot.style.background = "";
+      slot.style.aspectRatio = "";
+      slot.innerHTML = `<div style="color:#ff8a80; padding:20px; text-align:center;">❌ 第 ${slot.dataset.pageNum} 頁無法顯示（浮水印或頁面繪製失敗）</div>`;
+      return;
+    }
 
     slot.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
     slot.style.background = "";
@@ -261,7 +337,8 @@ async function renderPdfLazily(pdf, container) {
 
 function drawWatermark(ctx, width, height) {
   const dateStr = new Date().toLocaleDateString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}).replace(/\//g, '/');
-  const text = `${user.userName} ${dateStr}`;
+  const text = `${user.userName || ''} ${dateStr}`.trim();
+  if (!user.userName || !text) throw new Error('浮水印文字為空');
   ctx.save();
   ctx.font = "bold 40px 'Microsoft JhengHei'";
   ctx.fillStyle = "rgba(255, 0, 0, 0.2)";

@@ -28,6 +28,11 @@ function refreshSessionInBackground() {
   const acc = localStorage.getItem('savedAcc');
   const pwd = localStorage.getItem('savedPwd');
   if (!acc || !pwd) return;
+  // 剛從登入頁實際驗證過 → 跳過，省一次 GAS 呼叫
+  if (sessionStorage.getItem('justVerified')) {
+    sessionStorage.removeItem('justVerified');
+    return;
+  }
 
   callApi('login', { account: acc, password: pwd }).then(res => {
     if (res && res.success) {
@@ -37,6 +42,7 @@ function refreshSessionInBackground() {
       // 密碼已在帳號表被改掉 → 清除紀錄，回登入頁重新輸入。
       // 只認這個明確訊息；網路暫時失敗不能把人踢出去。
       localStorage.removeItem('savedSession');
+      localStorage.removeItem('lastSession');
       sessionStorage.clear();
       window.location.href = "index.html";
     }
@@ -45,6 +51,12 @@ function refreshSessionInBackground() {
 
 function logout() {
   sessionStorage.clear();
-  localStorage.removeItem('savedSession');   // 清掉免登入紀錄，回到帳密畫面 (帳密欄位仍會預填)
+  // 清掉免登入紀錄，回到帳密畫面 (帳密欄位仍會預填)。
+  // 但把上次的使用者資料另存為 lastSession，同帳密再登入時可瞬間進入 (見 login.js)。
+  try {
+    const saved = localStorage.getItem('savedSession');
+    if (saved) localStorage.setItem('lastSession', saved);
+  } catch (e) {}
+  localStorage.removeItem('savedSession');
   window.location.href = "index.html";
 }

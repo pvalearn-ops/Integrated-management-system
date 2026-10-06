@@ -11,6 +11,17 @@ window.onload = () => {
     }
   } catch (e) {}
 
+  // 預熱：趁使用者輸入帳密的空檔先叫醒 GAS 並載入帳號快取，
+  // 避免按下登入時才遇到冷啟動 (閒置後第一次呼叫常要 3~8 秒)。不等結果、失敗也無所謂。
+  try {
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'warmup' }),
+      cache: 'no-store'
+    }).catch(() => {});
+  } catch (e) {}
+
   const savedAcc = localStorage.getItem('savedAcc');
   const savedPwd = localStorage.getItem('savedPwd');
   const accInput = document.getElementById('acc');
@@ -44,6 +55,19 @@ async function handleLogin() {
   loginBtn.innerText = "驗證中...";
   msgLabel.innerText = "";
 
+  // 瞬間登入：帳密與這台電腦上次驗證成功的相同 → 直接用上次的資料進選單，不等 GAS。
+  // 選單頁會在背景重新驗證，若密碼已在帳號表被改掉會自動踢回登入頁。
+  try {
+    const last = JSON.parse(localStorage.getItem('lastSession') || 'null');
+    if (last && last.userName &&
+        acc.toLowerCase() === String(localStorage.getItem('savedAcc') || '').toLowerCase() &&
+        pwd === localStorage.getItem('savedPwd')) {
+      saveSession(last);
+      window.location.href = "menu.html";
+      return;
+    }
+  } catch (e) {}
+
   // 呼叫我們封裝好的 API 函式
   const res = await callApi('login', { account: acc, password: pwd });
 
@@ -54,6 +78,8 @@ async function handleLogin() {
 
     // 寫入 session + localStorage 登入紀錄 (下次開網頁直接跳過登入頁)
     saveSession(res);
+    // 剛剛才驗證過，選單頁不必再背景驗證一次
+    sessionStorage.setItem('justVerified', '1');
 
     // 導向選單頁面
     window.location.href = "menu.html";

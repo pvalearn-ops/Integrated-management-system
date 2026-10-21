@@ -17,10 +17,10 @@ const API_URL = WORKER_URL || GAS_DIRECT_URL;
 // 這種偶發失敗重送一次通常就會過，所以這裡加上重試與逾時保護。
 
 // 單次嘗試的逾時。大部分動作 1~2 秒就該回來，20 秒還沒回等於已經出事了，
-// 沒必要讓使用者乾等。只有大檔 PDF 預覽需要放寬。
+// 沒必要讓使用者乾等。只有大檔 PDF 預覽與上傳掃描檔需要放寬。
 const API_TIMEOUT_MS = 20000;
 const API_TIMEOUT_LARGE_MS = 60000;
-const LARGE_ACTIONS = ['getFileBase64'];
+const LARGE_ACTIONS = ['getFileBase64', 'uploadScanFile'];
 
 // 注意：Worker (worker/gas-proxy.js) 內部也會重試 2 次，兩層是相乘的。
 // 這裡設 2，最壞情況共 4 次 GAS 呼叫。不要再往上調。

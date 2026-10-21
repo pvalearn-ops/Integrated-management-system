@@ -23,6 +23,8 @@
     .target-name { flex: 1; }
     .target-sub { color: #80868b; font-size: 0.85em; }
     .local-actions { display: flex; gap: 6px; }
+    .folder-link { font-size: 0.85em; color: #1a73e8; text-decoration: none; white-space: nowrap; padding: 2px 6px; border-radius: 4px; }
+    .folder-link:hover { background: #d2e3fc; }
     .local-actions button { font-size: 0.8em; padding: 2px 8px; }
     .group-label { font-size: 0.85em; color: #80868b; margin: 12px 0 6px; }
     .notice { background: #fef7e0; color: #b06000; padding: 10px; border-radius: 6px; font-size: 0.9em; }
@@ -73,6 +75,9 @@
       </div>
       <div id="localUnsupported" class="notice hidden">此瀏覽器不支援寫入本機資料夾，請改用電腦版 Chrome 或 Edge。</div>
       <div class="target-grid" id="localTargets"></div>
+      <div class="target-sub" style="margin-top:8px;">
+        「開啟」需先在這台電腦安裝一次：<a href="tools/open-folder-install.cmd" download>下載安裝檔</a>（下載後雙擊執行；移除用 <a href="tools/open-folder-uninstall.cmd" download>移除檔</a>）
+      </div>
     </div>
 
     <div class="opt-row hidden" id="deleteOptRow">

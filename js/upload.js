@@ -3,16 +3,18 @@
 
 const user = getCurrentUser();
 
-// key 必須與後端 SCAN_TARGETS 一致；資料夾 ID 只放在後端
+// key 必須與後端 SCAN_TARGETS 一致；上傳寫入的資料夾以後端為準。
+// folderId 只用來產生「開啟資料夾」連結 (指向最外層，不進年度資料夾)，
+// 傳錯檔案時由操作者自行進去刪除。
 const CLOUD_TARGETS = [
-  { key: 'osha',      name: '職安署來函與函示',   byYear: true },
-  { key: 'bizJoint',  name: '業務聯席會會議紀錄', byYear: true },
-  { key: 'techComm',  name: '技術委員會會議紀錄', byYear: true },
-  { key: 'groupMtg',  name: '組務會議',           byYear: true },
-  { key: 'audit',     name: '代檢業務稽核',       byYear: true },
-  { key: 'signMech',  name: '會簽檔案_機械',      byYear: false },
-  { key: 'signEquip', name: '會簽檔案_設備',      byYear: false },
-  { key: 'signAdmin', name: '會簽檔案_行政',      byYear: false }
+  { key: 'osha',      name: '職安署來函與函示',   byYear: true,  folderId: '17tV_ddjHa-VRu_kJ1qThZwWZW0w0AXna' },
+  { key: 'bizJoint',  name: '業務聯席會會議紀錄', byYear: true,  folderId: '1jK1XEzyHYaTqGlV-uWua2achxK8f1r9H' },
+  { key: 'techComm',  name: '技術委員會會議紀錄', byYear: true,  folderId: '1bnEdjCgfOh6pHpCoXPrRp5crxo0S5QSh' },
+  { key: 'groupMtg',  name: '組務會議',           byYear: true,  folderId: '1-ZR6PJZr63cjLHEKmrdJ_v340gSYuKKm' },
+  { key: 'audit',     name: '代檢業務稽核',       byYear: true,  folderId: '1cVrB8Q9aUY9YRJfdyBo13__ThBUBQcU3' },
+  { key: 'signMech',  name: '會簽檔案_機械',      byYear: false, folderId: '13V_QLzBJFMqRL9jXBthXFoKe1S-QvNFB' },
+  { key: 'signEquip', name: '會簽檔案_設備',      byYear: false, folderId: '1F3DPDtcL0zTuyoYlF50lngB-MrszXt-H' },
+  { key: 'signAdmin', name: '會簽檔案_行政',      byYear: false, folderId: '1dUgr3HWT7K9gW4G-yvCk920en2jGYnH6' }
 ];
 
 // 經 GAS 上傳要包成 base64 (膨脹約 33%)，太大會撞到 Apps Script 的請求上限
@@ -159,7 +161,20 @@ function renderTargets() {
   const year = getYear();
   CLOUD_TARGETS.forEach(t => {
     const sub = t.byYear ? `依年度 → ${year || '?'}年` : '';
-    box.appendChild(buildTargetItem('cloud', t.key, t.name, sub));
+    const item = buildTargetItem('cloud', t.key, t.name, sub);
+
+    const link = document.createElement('a');
+    link.className = 'folder-link';
+    link.href = 'https://drive.google.com/drive/folders/' + t.folderId;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = '開啟 ↗';
+    link.title = '在新分頁開啟雲端資料夾 (傳錯可進去手動刪除)';
+    // 連結在 <label> 裡，點它不能順便切換勾選
+    link.addEventListener('click', e => e.stopPropagation());
+    item.appendChild(link);
+
+    box.appendChild(item);
   });
 }
 
@@ -171,10 +186,19 @@ function renderLocalTargets() {
     return;
   }
   localTargets.forEach(t => {
-    const item = buildTargetItem('local', t.id, t.name, '📁 ' + t.handle.name);
+    const item = buildTargetItem('local', t.id, t.name, '📁 ' + (t.path || t.handle.name));
 
     const actions = document.createElement('span');
     actions.className = 'local-actions';
+    const btnOpen = document.createElement('button');
+    btnOpen.className = 'btn-secondary';
+    btnOpen.textContent = '開啟';
+    btnOpen.title = '用檔案總管開啟 (需先安裝「一鍵開啟本機資料夾」)';
+    btnOpen.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openLocalFolder(t.id); });
+    const btnPath = document.createElement('button');
+    btnPath.className = 'btn-secondary';
+    btnPath.textContent = '路徑';
+    btnPath.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setLocalPath(t.id); });
     const btnRename = document.createElement('button');
     btnRename.className = 'btn-secondary';
     btnRename.textContent = '改名';
@@ -183,7 +207,7 @@ function renderLocalTargets() {
     btnRemove.className = 'btn-secondary';
     btnRemove.textContent = '移除';
     btnRemove.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); removeLocalTarget(t.id); });
-    actions.append(btnRename, btnRemove);
+    actions.append(btnOpen, btnPath, btnRename, btnRemove);
 
     item.appendChild(actions);
     box.appendChild(item);
@@ -246,8 +270,10 @@ async function addLocalTarget() {
   }
   const name = (prompt('請為這個本機位置命名：', handle.name) || '').trim();
   if (!name) return;
+  // 瀏覽器不會告訴網頁資料夾的完整路徑，一鍵開啟需要使用者自己填
+  const path = askLocalPath('', handle.name);
 
-  const t = { id: 'L' + Date.now(), name: name, handle: handle };
+  const t = { id: 'L' + Date.now(), name: name, handle: handle, path: path || '' };
   try {
     await idbPut(t);
   } catch (e) {
@@ -268,6 +294,42 @@ async function renameLocalTarget(id) {
   t.name = name;
   try { await idbPut(t); } catch (e) { alert('儲存失敗：' + e.message); }
   renderLocalTargets();
+}
+
+// 回傳整理過的路徑；按取消回傳 null，留空回傳 ''
+function askLocalPath(current, folderName) {
+  const input = prompt(
+    `請輸入資料夾「${folderName}」的完整路徑（選填，用於一鍵開啟檔案總管）\n` +
+    '在檔案總管進入該資料夾，點上方網址列即可複製，例如：D:\\公文\\掃描',
+    current || '');
+  if (input === null) return null;
+  return input.trim().replace(/^"+|"+$/g, '');
+}
+
+async function setLocalPath(id) {
+  const t = localTargets.find(x => x.id === id);
+  if (!t) return;
+  const path = askLocalPath(t.path, t.handle.name);
+  if (path === null || path === (t.path || '')) return;
+  t.path = path;
+  try { await idbPut(t); } catch (e) { alert('儲存失敗：' + e.message); }
+  renderLocalTargets();
+}
+
+// 透過自訂協定 imsfolder: 交給本機的開啟程式 (tools/open-folder-install.cmd 安裝)。
+// 路徑以 UTF-8 + base64url 編碼，網址裡只會有英數字與 -_，對方程式只把它當資料解碼。
+function openLocalFolder(id) {
+  const t = localTargets.find(x => x.id === id);
+  if (!t) return;
+  if (!t.path) {
+    setLocalPath(id);
+    return;
+  }
+  const bytes = new TextEncoder().encode(t.path);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  const code = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  window.location.href = 'imsfolder:' + code;
 }
 
 async function removeLocalTarget(id) {
